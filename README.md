@@ -1,2 +1,7 @@
 # SnackSmack
-## Project by Ethan Schoer, Corey Lambert, Jesse Martinez, Ricardo Angel-Perez
+## Credits
+Project Developed by:
+  - Ethan Schoer
+  - Corey Lambert
+  - Jesse Martinez
+  - Ricardo Angel-Perez
