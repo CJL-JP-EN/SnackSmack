@@ -22,11 +22,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 // Declares navigation buttons as well as associates an icon with each item
 fun navigationButtons(navController: NavController) {
     val items = listOf(
-        NavigationItem("Home", "home", Icons.Default.Home),
-        NavigationItem("Progress", "progress", Icons.Default.Info),
-        NavigationItem("Profile", "profile", Icons.Default.AccountCircle),
-        NavigationItem("Water Tracking", "waterTracking", Icons.Default.Star),
-        NavigationItem("Calendar", "calendar", Icons.Default.DateRange)
+        NavigationItem("Home", "", Icons.Default.Home),
+        NavigationItem("Progress", "", Icons.Default.Info),
+        NavigationItem("Profile", "", Icons.Default.AccountCircle),
+        NavigationItem("Water Tracking", "", Icons.Default.Star),
+        NavigationItem("Calendar", "", Icons.Default.DateRange)
     )
 
     // creates a navigation bar to navigate between screens
