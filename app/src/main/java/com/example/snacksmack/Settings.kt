@@ -10,8 +10,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+// Settings has not been implemented yet
+
 @Composable
-// Homescreen that hs the txt at the very top
 fun Settings() {
     Column(
         modifier = Modifier

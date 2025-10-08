@@ -10,8 +10,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+// Home Screen
+
 @Composable
-// Homescreen that hs the txt at the very top
+
 fun HomeScreen() {
     Column(
         modifier = Modifier
