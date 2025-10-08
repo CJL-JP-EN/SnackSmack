@@ -10,11 +10,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Home Screen
+// Water Tracking Screen
 
 @Composable
-
-fun HomeScreen() {
+fun waterTrackingScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -23,7 +22,7 @@ fun HomeScreen() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Home Page",
+            text = "Water Tracking",
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold
         )

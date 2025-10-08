@@ -10,11 +10,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Home Screen
+// Calendar Screen
 
 @Composable
-
-fun HomeScreen() {
+fun calendarScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -23,7 +22,7 @@ fun HomeScreen() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Home Page",
+            text = "Calendar",
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold
         )
