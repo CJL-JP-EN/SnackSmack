@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 // Homescreen that hs the txt at the very top
-fun HomeScreen() {
+fun progessScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -21,7 +21,7 @@ fun HomeScreen() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Home Page",
+            text = "Progress",
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold
         )
