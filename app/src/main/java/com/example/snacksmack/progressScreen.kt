@@ -10,11 +10,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Home Screen
+// Progress Screen
 
 @Composable
-
-fun HomeScreen() {
+fun progressScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -23,7 +22,7 @@ fun HomeScreen() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Home Page",
+            text = "Progress",
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold
         )

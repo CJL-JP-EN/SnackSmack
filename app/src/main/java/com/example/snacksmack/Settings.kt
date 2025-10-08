@@ -10,11 +10,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Home Screen
+// Settings has not been implemented yet
 
 @Composable
-
-fun HomeScreen() {
+fun Settings() {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -23,7 +22,7 @@ fun HomeScreen() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Home Page",
+            text = "Settings",
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold
         )
