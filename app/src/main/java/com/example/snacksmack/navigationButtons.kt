@@ -4,7 +4,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -20,13 +19,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 
 @Composable
 // Declares navigation buttons as well as associates an icon with each item
-fun navigationButtons(navController: NavController) {
+fun NavigationButtons(navController: NavController) {
     val items = listOf(
         NavigationItem("", "home", Icons.Default.Home),
-        NavigationItem("", "progress", Icons.Default.Info),
-        NavigationItem("", "profile", Icons.Default.AccountCircle),
         NavigationItem("", "waterTracking", Icons.Default.Star),
-        NavigationItem("", "calendar", Icons.Default.DateRange)
+        NavigationItem("", "calendar", Icons.Default.DateRange),
+        NavigationItem("", "profile", Icons.Default.AccountCircle)
     )
 
     // creates a navigation bar to navigate between screens

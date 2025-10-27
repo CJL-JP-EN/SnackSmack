@@ -1,5 +1,3 @@
-package com.example.snacksmack
-
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -11,6 +9,8 @@ import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.example.snacksmack.MainActivity
+import com.example.snacksmack.R
 import kotlin.random.Random
 
 object NotificationHelper {
@@ -54,7 +54,7 @@ object NotificationHelper {
 
     private fun randomMessage(useHarsh: Boolean = true): String {
         val pool = if (useHarsh) harshMessages else supportiveMessages
-        return pool[Random.nextInt(pool.size)]
+        return pool[Random.Default.nextInt(pool.size)]
     }
 
     fun showRandomSnackAlert(context: Context, useHarsh: Boolean = true) {
