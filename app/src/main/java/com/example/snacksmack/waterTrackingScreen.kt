@@ -187,5 +187,5 @@ fun WaterCupWithRing(progress: Float, modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 private fun PreviewWaterTrackingScreen() {
-    waterTrackingScreen()
+    WaterTrackingScreen()
 }
