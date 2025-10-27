@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.sp
 // Progress Screen
 
 @Composable
-fun progressScreen() {
+fun ProgressScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()

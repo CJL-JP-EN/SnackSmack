@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.sp
 // Profile Screen
 
 @Composable
-fun profileScreen() {
+fun ProfileScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
