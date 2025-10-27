@@ -13,13 +13,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.snacksmack.ui.theme.SnackSmackTheme
 
-// Correctly import all the screen composables
-import com.example.snacksmack.HomeScreen
-import com.example.snacksmack.CalendarScreen
-import com.example.snacksmack.WaterTrackingScreen
-import com.example.snacksmack.ProgressScreen
-import com.example.snacksmack.ProfileScreen
-import com.example.snacksmack.NavigationButtons
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
