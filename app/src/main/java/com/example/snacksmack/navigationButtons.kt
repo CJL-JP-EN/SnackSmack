@@ -23,10 +23,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 fun NavigationButtons(navController: NavController) {
     val items = listOf(
         NavigationItem("", "home", Icons.Default.Home),
-        NavigationItem("", "progress", Icons.Default.Info),
-        NavigationItem("", "profile", Icons.Default.AccountCircle),
-        NavigationItem("", "waterTracking", Icons.Default.Star),
-        NavigationItem("", "calendar", Icons.Default.DateRange)
+        NavigationItem("", "waterTracking", Icons.Default.),
+        NavigationItem("", "calendar", Icons.Default.DateRange),
+        NavigationItem("", "profile", Icons.Default.AccountCircle)
     )
 
     // creates a navigation bar to navigate between screens

@@ -38,10 +38,9 @@ fun MyApp() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable("home") { HomeScreen() }
-            composable("progress") { ProgressScreen() }
-            composable("profile") { ProfileScreen() }
             composable("waterTracking") { WaterTrackingScreen() }
             composable("calendar") { CalendarScreen() }
+            composable("profile") { ProfileScreen() }
         }
     }
 }
