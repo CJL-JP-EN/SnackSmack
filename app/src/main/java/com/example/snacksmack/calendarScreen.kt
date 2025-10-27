@@ -49,7 +49,7 @@ private fun loadEvents(context: Context): Map<String, List<Event>> {
 
 // Main Calendar Screen
 @Composable
-fun calendarScreen(modifier: Modifier = Modifier) {
+fun CalendarScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
 
     val today = remember {

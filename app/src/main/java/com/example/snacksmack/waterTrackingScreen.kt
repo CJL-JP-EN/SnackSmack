@@ -24,7 +24,7 @@ import kotlinx.coroutines.delay
 import java.time.LocalDate
     //update1.1
 @Composable
-fun waterTrackingScreen() {
+fun WaterTrackingScreen() {
     // Persist across rotation/process death
     var progress by rememberSaveable { mutableStateOf(0f) }          // 0f..1f
     val animated = animateFloatAsState(progress, label = "fill").value

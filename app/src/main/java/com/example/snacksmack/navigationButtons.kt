@@ -20,7 +20,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 
 @Composable
 // Declares navigation buttons as well as associates an icon with each item
-fun navigationButtons(navController: NavController) {
+fun NavigationButtons(navController: NavController) {
     val items = listOf(
         NavigationItem("", "home", Icons.Default.Home),
         NavigationItem("", "progress", Icons.Default.Info),

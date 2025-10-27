@@ -15,11 +15,11 @@ import com.example.snacksmack.ui.theme.SnackSmackTheme
 
 // Correctly import all the screen composables
 import com.example.snacksmack.homeScreen
-import com.example.snacksmack.calendarScreen
-import com.example.snacksmack.waterTrackingScreen
-import com.example.snacksmack.progressScreen
-import com.example.snacksmack.profileScreen
-import com.example.snacksmack.navigationButtons
+import com.example.snacksmack.CalendarScreen
+import com.example.snacksmack.WaterTrackingScreen
+import com.example.snacksmack.ProgressScreen
+import com.example.snacksmack.ProfileScreen
+import com.example.snacksmack.NavigationButtons
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,18 +37,18 @@ class MainActivity : ComponentActivity() {
 fun MyApp() {
     val navController = rememberNavController()
     Scaffold(
-        bottomBar = { navigationButtons(navController = navController) }
+        bottomBar = { NavigationButtons(navController = navController) }
     ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = "home",
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable("home") { homeScreen() }
-            composable("progress") { progressScreen() }
-            composable("profile") { profileScreen() }
-            composable("waterTracking") { waterTrackingScreen() }
-            composable("calendar") { calendarScreen() }
+            composable("home") { HomeScreen() }
+            composable("progress") { ProgressScreen() }
+            composable("profile") { ProfileScreen() }
+            composable("waterTracking") { WaterTrackingScreen() }
+            composable("calendar") { CalendarScreen() }
         }
     }
 }
