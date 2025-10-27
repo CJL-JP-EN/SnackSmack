@@ -23,7 +23,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 fun NavigationButtons(navController: NavController) {
     val items = listOf(
         NavigationItem("", "home", Icons.Default.Home),
-        NavigationItem("", "waterTracking", Icons.Default.),
+        NavigationItem("", "waterTracking", Icons.Default.Star),
         NavigationItem("", "calendar", Icons.Default.DateRange),
         NavigationItem("", "profile", Icons.Default.AccountCircle)
     )
