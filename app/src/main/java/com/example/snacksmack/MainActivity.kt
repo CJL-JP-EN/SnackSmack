@@ -14,12 +14,12 @@ import androidx.navigation.compose.rememberNavController
 import com.example.snacksmack.ui.theme.SnackSmackTheme
 
 // Correctly import all the screen composables
-import com.example.snacksmack.homeScreen
+import com.example.snacksmack.HomeScreen
 import com.example.snacksmack.CalendarScreen
 import com.example.snacksmack.WaterTrackingScreen
 import com.example.snacksmack.ProgressScreen
 import com.example.snacksmack.ProfileScreen
-import com.example.snacksmack.NavigationButtons
+import com.example.snacksmack.navigationButtons
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,14 +37,14 @@ class MainActivity : ComponentActivity() {
 fun MyApp() {
     val navController = rememberNavController()
     Scaffold(
-        bottomBar = { NavigationButtons(navController = navController) }
+        bottomBar = { navigationButtons(navController = navController) }
     ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = "home",
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable("home") { HomeScreen() }
+            composable("home") { HomeScreen(navigateToCalendar = { navController.navigate("calendar") }) }
             composable("progress") { ProgressScreen() }
             composable("profile") { ProfileScreen() }
             composable("waterTracking") { WaterTrackingScreen() }
