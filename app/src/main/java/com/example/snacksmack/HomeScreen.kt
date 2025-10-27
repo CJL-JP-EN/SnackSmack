@@ -21,7 +21,7 @@ import androidx.core.content.ContextCompat
 
 @Composable
 
-fun HomeScreen() {
+fun homeScreen() {
     val context = LocalContext.current
     var useHarsh by remember { mutableStateOf(true) } // toggle harsh/supportive if you want
 
