@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         composable("home") { HomeScreen() }
                         composable("progress") { progressScreen() }
-                        composable("profile") { profileScreen() }
+                        composable("profile") { ProfileScreen() }
                         composable("waterTracking") { waterTrackingScreen() }
                         composable("calendar") { calendarScreen() }
                     }
