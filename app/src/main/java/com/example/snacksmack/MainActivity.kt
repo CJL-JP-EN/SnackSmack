@@ -14,9 +14,9 @@ import androidx.navigation.compose.rememberNavController
 import com.example.snacksmack.ui.theme.SnackSmackTheme
 
 // Correctly import all the screen composables
-import com.example.snacksmack.HomeScreen
-import com.example.snacksmack.CalendarScreen
-import com.example.snacksmack.WaterTrackingScreen
+import com.example.snacksmack.homeScreen
+import com.example.snacksmack.calendarScreen
+import com.example.snacksmack.waterTrackingScreen
 import com.example.snacksmack.progressScreen
 import com.example.snacksmack.profileScreen
 import com.example.snacksmack.navigationButtons
