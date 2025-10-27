@@ -65,5 +65,6 @@ dependencies {
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
+    implementation(libs.androidx.material.icons.extended)
     implementation("com.google.code.gson:gson:2.13.2")
 }

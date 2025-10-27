@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -20,27 +19,23 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             SnackSmackTheme {
-                MyApp()
+                val navController = rememberNavController()
+                Scaffold(
+                    bottomBar = { navigationButtons(navController = navController) }
+                ) { innerPadding ->
+                    NavHost(
+                        navController = navController,
+                        startDestination = "home",
+                        modifier = Modifier.padding(innerPadding)
+                    ) {
+                        composable("home") { HomeScreen() }
+                        composable("progress") { progressScreen() }
+                        composable("profile") { profileScreen() }
+                        composable("waterTracking") { waterTrackingScreen() }
+                        composable("calendar") { calendarScreen() }
+                    }
+                }
             }
-        }
-    }
-}
-
-@Composable
-fun MyApp() {
-    val navController = rememberNavController()
-    Scaffold(
-        bottomBar = { NavigationButtons(navController = navController) }
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = "home",
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            composable("home") { HomeScreen() }
-            composable("waterTracking") { WaterTrackingScreen() }
-            composable("calendar") { CalendarScreen() }
-            composable("profile") { ProfileScreen() }
         }
     }
 }
