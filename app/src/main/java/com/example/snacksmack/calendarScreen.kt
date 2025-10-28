@@ -258,7 +258,7 @@ private fun CreateOrEditEventDialog(
                             endTimeError = "End time must be after start time"
                             areTimesLogicallyValid = false
                         }
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         endTimeError = "Invalid time format"
                         areTimesLogicallyValid = false
                     }
