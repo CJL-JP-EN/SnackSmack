@@ -36,7 +36,7 @@ fun MyApp() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable("home")         { HomeScreen() }
-            composable("waterTracking"){ waterTrackingScreen() }   // ✅ call the capitalized function
+            composable("waterTracking"){ waterTrackingScreen() }
             composable("calendar")     { CalendarScreen() }
             composable("profile")      { ProfileScreen() }
         }

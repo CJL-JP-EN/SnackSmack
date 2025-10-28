@@ -13,6 +13,7 @@ import kotlin.math.max
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlin.apply
 
 class WaterViewModel(
     app: Application,
@@ -96,5 +97,14 @@ class WaterViewModel(
     private fun roundToStep(value: Int, step: Int): Int {
         val rem = value % step
         return if (rem == 0) value else value + (step - rem)
+    }
+    //promps only once
+    fun shouldPromptGoalOnce(): Boolean {
+        // only ask once unless never set before
+        return !prefs.getBoolean("goalPromptSeen", false)
+    }
+
+    fun markGoalPromptSeen() {
+        prefs.edit().putBoolean("goalPromptSeen", true).apply()
     }
 }

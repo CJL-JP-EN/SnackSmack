@@ -11,18 +11,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -38,8 +29,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 
 
 /* ---------- PUBLIC (one-liner) ---------- */
@@ -47,15 +36,17 @@ import androidx.compose.runtime.setValue
 fun waterTrackingScreen(
     owner: ViewModelStoreOwner = LocalContext.current as ComponentActivity
 ) {
-    val vm: WaterViewModel = viewModel(owner) // activity-scoped VM (persists across nav + restarts)
+    val vm: WaterViewModel = viewModel(owner)
     WaterTrackingInternal(
-        progress       = vm.progress,
-        goalOz         = vm.goalOz,
-        consumedOz     = vm.consumedOz,
-        cupIncrementOz = vm.cupIncrementOz,
-        onAddCup       = vm::addCup,
-        onRemoveCup    = vm::removeCup,
-        onSetGoal      = vm::updateGoalOz
+        progress         = vm.progress,
+        goalOz           = vm.goalOz,
+        consumedOz       = vm.consumedOz,
+        cupIncrementOz   = vm.cupIncrementOz,
+        onAddCup         = vm::addCup,
+        onRemoveCup      = vm::removeCup,
+        onSetGoal        = vm::updateGoalOz,
+        shouldPromptGoal = vm.shouldPromptGoalOnce(),
+        onPromptSeen     = vm::markGoalPromptSeen
     )
 }
 
@@ -68,16 +59,19 @@ private fun WaterTrackingInternal(
     cupIncrementOz: Int,
     onAddCup: () -> Unit,
     onRemoveCup: () -> Unit,
-    onSetGoal: (Int) -> Unit
+    onSetGoal: (Int) -> Unit,
+    shouldPromptGoal: Boolean,
+    onPromptSeen: () -> Unit
 ) {
     val animated = rememberAnimatedProgress(progress)
-
-// Show immediately based on the real state, not the animated one
     val showCongrats = progress >= 1f
-// If you still want a tiny fade, keep this; or drop it and render directly
-    val congratsAlpha by animateFloatAsState(targetValue = if (showCongrats) 1f else 0f, label = "congrats")
-// Or: val congratsAlpha = if (showCongrats) 1f else 0f  // snaps, no fade
+    val congratsAlpha by animateFloatAsState(
+        targetValue = if (showCongrats) 1f else 0f,
+        label = "congrats"
+    )
     val pulse = rememberPulse(animated >= 1f)
+
+    var showGoalDialog by remember { mutableStateOf(shouldPromptGoal) }
 
     Column(
         modifier = Modifier
@@ -110,6 +104,7 @@ private fun WaterTrackingInternal(
 
         Spacer(Modifier.size(16.dp))
 
+        // Cup area
         Box(
             modifier = Modifier
                 .size(260.dp)
@@ -117,26 +112,49 @@ private fun WaterTrackingInternal(
             contentAlignment = Alignment.Center
         ) {
             Canvas(Modifier.fillMaxSize()) { drawCupWithRing(animated, pulse) }
+            Text(
+                text = "${consumedOz} oz",
+                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp),
+                color = Color(0xFF2F3A40)
+            )
+        }
+
+        Spacer(Modifier.size(16.dp))
+
+        // Buttons row
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = onRemoveCup) { Text(text = "−${cupIncrementOz}oz") }
+            Button(onClick = onAddCup) { Text(text = "+${cupIncrementOz}oz") }
+            OutlinedButton(onClick = { showGoalDialog = true }) { Text("Set goal") }
         }
     }
-}
 
+    if (showGoalDialog) {
+        GoalDialog(
+            currentGoal = goalOz,
+            step = cupIncrementOz,
+            onDismiss = {
+                showGoalDialog = false
+                onPromptSeen()
+            },
+            onSave = { newGoal ->
+                onSetGoal(newGoal)
+                onPromptSeen()
+                showGoalDialog = false
+            }
+        )
+    }
+}
 /* ---------- PRIVATE helpers ---------- */
 @Composable
 private fun rememberAnimatedProgress(target: Float): Float {
-    // Start at the current target so first composition shows the real value immediately
     val anim = remember { Animatable(target) }
     var prevTarget by remember { mutableStateOf(target) }
 
     LaunchedEffect(target) {
         if (target > prevTarget && (target - anim.value) > 0.001f) {
-            // animate only on upward changes (user added water)
-            anim.animateTo(
-                targetValue = target,
-                animationSpec = tween(600, easing = FastOutSlowInEasing)
-            )
+            anim.animateTo(target, tween(600, easing = FastOutSlowInEasing))
         } else {
-            // snap on first load, same value, or decreases / midnight reset
             anim.snapTo(target)
         }
         prevTarget = target
@@ -165,7 +183,6 @@ private fun DrawScope.drawCupWithRing(progress: Float, pulse: Float) {
     val center = Offset(w / 2f, h / 2.2f)
     val ringStroke = w * 0.06f
 
-    // track
     drawArc(
         color = Color(0xFF2F3A40).copy(alpha = 0.18f),
         startAngle = -90f,
@@ -175,7 +192,7 @@ private fun DrawScope.drawCupWithRing(progress: Float, pulse: Float) {
         size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
         style = Stroke(width = ringStroke, cap = StrokeCap.Round)
     )
-    // progress
+
     drawArc(
         color = Color(0xFF6BAFD6),
         startAngle = -90f,
@@ -185,7 +202,7 @@ private fun DrawScope.drawCupWithRing(progress: Float, pulse: Float) {
         size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
         style = Stroke(width = ringStroke, cap = StrokeCap.Round)
     )
-    // glow when full
+
     if (progress >= 1f) {
         val glow = ringStroke * (1f + 0.25f * pulse)
         drawArc(
@@ -199,7 +216,6 @@ private fun DrawScope.drawCupWithRing(progress: Float, pulse: Float) {
         )
     }
 
-    // cup
     val cupTopWidth = w * 0.42f
     val cupBottomWidth = w * 0.30f
     val cupHeight = h * 0.42f
@@ -219,7 +235,6 @@ private fun DrawScope.drawCupWithRing(progress: Float, pulse: Float) {
     }
     drawPath(cupPath, Color(0xFF2F3A40), style = Stroke(w * 0.01f))
 
-    // water fill
     val fillTop = cupBottomY - (cupHeight * progress)
     val t = ((fillTop - cupTopY) / (cupBottomY - cupTopY)).coerceIn(0f, 1f)
     val topWidthAtFill = cupTopWidth + (cupBottomWidth - cupTopWidth) * t
@@ -234,4 +249,82 @@ private fun DrawScope.drawCupWithRing(progress: Float, pulse: Float) {
         close()
     }
     drawPath(water, Color(0xFF6BAFD6).copy(alpha = 0.9f))
+}
+
+/* ---------- GOAL DIALOG ---------- */
+@Composable
+private fun GoalDialog(
+    currentGoal: Int,
+    step: Int,
+    onDismiss: () -> Unit,
+    onSave: (Int) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Set Daily Goal") },
+        text = {
+            Column {
+                Text(
+                    text = "Enter your daily water goal in ounces.\nIt must be a multiple of $step oz.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.size(12.dp))
+
+                var text by remember { mutableStateOf(currentGoal.toString()) }
+                fun sanitized(s: String) = s.filter { it.isDigit() }.take(4)
+
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = sanitized(it) },
+                    singleLine = true,
+                    label = { Text("Goal (oz)") }
+                )
+
+                Spacer(Modifier.size(12.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(48, 64, 80, 96).forEach { preset ->
+                        OutlinedButton(onClick = { text = preset.toString() }) {
+                            Text("${preset}oz")
+                        }
+                    }
+                }
+
+                Spacer(Modifier.size(8.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        val v = text.toIntOrNull() ?: currentGoal
+                        text = (v - step).coerceAtLeast(step).toString()
+                    }) { Text("−${step}oz") }
+
+                    OutlinedButton(onClick = {
+                        val v = text.toIntOrNull() ?: currentGoal
+                        text = (v + step).toString()
+                    }) { Text("+${step}oz") }
+                }
+
+                val value = text.toIntOrNull()
+                val valid = value != null && value >= step && value % step == 0
+
+                if (!valid) {
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        "Goal must be at least ${step}oz and a multiple of ${step}.",
+                        color = Color(0xFFB00020),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                Spacer(Modifier.size(12.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    Button(onClick = { value?.let(onSave) }, enabled = valid) { Text("Save") }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {}
+    )
 }
