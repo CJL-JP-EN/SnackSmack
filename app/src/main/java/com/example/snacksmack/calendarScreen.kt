@@ -54,7 +54,8 @@ fun CalendarScreen(modifier: Modifier = Modifier) {
 
     val today = remember {
         val cal = Calendar.getInstance()
-        SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault()).format(cal.time)
+        // Use a specific locale for consistent date formatting
+        SimpleDateFormat("EEE, MMM d, yyyy", Locale.US).format(cal.time)
     }
 
     var selectedDate by remember { mutableStateOf(today) }
@@ -67,48 +68,56 @@ fun CalendarScreen(modifier: Modifier = Modifier) {
         saveEvents(context, events)
     }
 
-    Column(
+    LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        CalendarViewSection(onDateSelected = { selectedDate = it })
-
-        Spacer(Modifier.height(12.dp))
-        Text(
-            text = "Selected: $selectedDate",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(Modifier.height(12.dp))
-        Button(onClick = { showCreateDialog = true }) {
+        item {
+            CalendarViewSection(onDateSelected = { selectedDate = it })
+            Spacer(Modifier.height(12.dp))
             Text(
-                text = "Create Event"
+                text = "Selected: $selectedDate",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
             )
+            Spacer(Modifier.height(12.dp))
+            Button(onClick = { showCreateDialog = true }) {
+                Text(
+                    text = "Create Event"
+                )
+            }
+            Spacer(Modifier.height(16.dp))
         }
 
-        Spacer(Modifier.height(16.dp))
+        val currentEvents = events[selectedDate] ?: emptyList()
 
-        EventListSection(
-            selectedDate = selectedDate,
-            events = events[selectedDate] ?: emptyList(),
-            onDelete = { eventToDelete ->
-                val updatedEvents = events.toMutableMap()
-                val dayEvents = updatedEvents[selectedDate]?.toMutableList()
-                if (dayEvents != null) {
-                    dayEvents.remove(eventToDelete)
-                    if (dayEvents.isEmpty()) {
-                        updatedEvents.remove(selectedDate)
-                    } else {
-                        updatedEvents[selectedDate] = dayEvents
-                    }
-                    events = updatedEvents
-                }
-            },
-            onEditClick = { eventToEdit -> editEvent = eventToEdit }
-        )
+        if (currentEvents.isEmpty()) {
+            item {
+                Text("No events for $selectedDate.")
+            }
+        } else {
+            items(currentEvents) { event ->
+                EventCard(
+                    event = event,
+                    onDelete = {
+                        val updatedEvents = events.toMutableMap()
+                        val dayEvents = updatedEvents[selectedDate]?.toMutableList()
+                        if (dayEvents != null) {
+                            dayEvents.remove(event)
+                            if (dayEvents.isEmpty()) {
+                                updatedEvents.remove(selectedDate)
+                            } else {
+                                updatedEvents[selectedDate] = dayEvents
+                            }
+                            events = updatedEvents
+                        }
+                    },
+                    onEditClick = { editEvent = event }
+                )
+            }
+        }
     }
 
     if (showCreateDialog) {
@@ -156,7 +165,7 @@ private fun CalendarViewSection(onDateSelected: (String) -> Unit) {
                 setOnDateChangeListener { _, year, month, day ->
                     val cal = Calendar.getInstance()
                     cal.set(year, month, day)
-                    val fmt = SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault())
+                    val fmt = SimpleDateFormat("EEE, MMM d, yyyy", Locale.US)
                     onDateSelected(fmt.format(cal.time))
                 }
             }
@@ -209,7 +218,6 @@ private fun CreateOrEditEventDialog(
                     pickTime(context) { picked ->
                         startTime = picked
                         startTimeError = null
-                        // Clear end time error as well, so validation is re-triggered
                         endTimeError = null
                     }
                 }) {
@@ -236,28 +244,22 @@ private fun CreateOrEditEventDialog(
         },
         confirmButton = {
             Button(onClick = {
-                val isTitleValid = if (title.isBlank()) {
-                    titleError = "Title is required"
-                    false
-                } else true
-
-                val isStartTimeValid = if (startTime.isEmpty()) {
-                    startTimeError = "Start time is required"
-                    false
-                } else true
-
-                val isEndTimeValid = if (endTime.isEmpty()) {
-                    endTimeError = "End time is required"
-                    false
-                } else true
+                val isTitleValid = title.isNotBlank().also { if (!it) titleError = "Title is required" }
+                val isStartTimeValid = startTime.isNotEmpty().also { if (!it) startTimeError = "Start time is required" }
+                val isEndTimeValid = endTime.isNotEmpty().also { if (!it) endTimeError = "End time is required" }
 
                 var areTimesLogicallyValid = true
                 if (isStartTimeValid && isEndTimeValid) {
-                    val (startHour, startMinute) = startTime.split(":").map { it.toInt() }
-                    val (endHour, endMinute) = endTime.split(":").map { it.toInt() }
-
-                    if (endHour < startHour || (endHour == startHour && endMinute < startMinute)) {
-                        endTimeError = "End time cannot be before start time"
+                    try {
+                        val timeFormat = SimpleDateFormat("hh:mm a", Locale.US)
+                        val startTimeDate = timeFormat.parse(startTime)
+                        val endTimeDate = timeFormat.parse(endTime)
+                        if (startTimeDate != null && endTimeDate != null && endTimeDate.before(startTimeDate)) {
+                            endTimeError = "End time must be after start time"
+                            areTimesLogicallyValid = false
+                        }
+                    } catch (_: Exception) {
+                        endTimeError = "Invalid time format"
                         areTimesLogicallyValid = false
                     }
                 }
@@ -273,30 +275,6 @@ private fun CreateOrEditEventDialog(
             Button(onClick = onDismiss) { Text("Cancel") }
         }
     )
-}
-
-// Event list section
-@Composable
-private fun EventListSection(
-    selectedDate: String,
-    events: List<Event>,
-    onDelete: (Event) -> Unit,
-    onEditClick: (Event) -> Unit
-) {
-    if (events.isEmpty()) {
-        Text("No events for $selectedDate.")
-        return
-    }
-
-    LazyColumn {
-        items(events) { event ->
-            EventCard(
-                event = event,
-                onDelete = { onDelete(event) },
-                onEditClick = { onEditClick(event) }
-            )
-        }
-    }
 }
 
 // Single event card
@@ -333,12 +311,17 @@ private fun pickTime(context: Context, onTimeSelected: (String) -> Unit) {
     val cal = Calendar.getInstance()
     TimePickerDialog(
         context,
-        { _, hour, minute ->
-            val time = String.format(Locale.US, "%02d:%02d", hour, minute)
-            onTimeSelected(time)
+        // Use a more modern theme that still provides a spinner-style picker
+        android.R.style.Theme_DeviceDefault_Light_Dialog_NoActionBar,
+        { _, hourOfDay, minute ->
+            val selectedTime = Calendar.getInstance()
+            selectedTime.set(Calendar.HOUR_OF_DAY, hourOfDay)
+            selectedTime.set(Calendar.MINUTE, minute)
+            val timeFormatter = SimpleDateFormat("hh:mm a", Locale.US)
+            onTimeSelected(timeFormatter.format(selectedTime.time))
         },
         cal.get(Calendar.HOUR_OF_DAY),
         cal.get(Calendar.MINUTE),
-        true
+        false // Use 12-hour format with AM/PM selector
     ).show()
 }
