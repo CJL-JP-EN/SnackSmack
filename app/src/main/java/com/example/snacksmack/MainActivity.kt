@@ -12,16 +12,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.snacksmack.ui.theme.SnackSmackTheme
-
+import com.example.snacksmack.waterTrackingScreen   // capital w
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            SnackSmackTheme {
-                MyApp()
-            }
+            SnackSmackTheme { MyApp() }
         }
     }
 }
@@ -37,10 +35,10 @@ fun MyApp() {
             startDestination = "home",
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable("home") { HomeScreen() }
-            composable("waterTracking") { WaterTrackingScreen() }
-            composable("calendar") { CalendarScreen() }
-            composable("profile") { ProfileScreen() }
+            composable("home")         { HomeScreen() }
+            composable("waterTracking"){ waterTrackingScreen() }   // ✅ call the capitalized function
+            composable("calendar")     { CalendarScreen() }
+            composable("profile")      { ProfileScreen() }
         }
     }
 }
