@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.*
@@ -12,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -20,10 +22,9 @@ import androidx.core.content.ContextCompat
 // Home Screen
 
 @Composable
-
 fun HomeScreen() {
     val context = LocalContext.current
-    var useHarsh by remember { mutableStateOf(true) } // toggle harsh/supportive if you want
+    var useHarsh by remember { mutableStateOf(true) }
 
     // Create high-priority channel once
     LaunchedEffect(Unit) { NotificationHelper.createHighPriorityChannel(context) }
@@ -37,10 +38,23 @@ fun HomeScreen() {
         }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.Center,
+        modifier = Modifier.fillMaxSize().padding(1.dp),
+        verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Spacer(Modifier.height(5.dp))
+
+        // Add your image here
+        Image(
+            painter = painterResource(id = R.drawable.snacksmack_logo_icon),
+            contentDescription = "App Logo",
+            modifier = Modifier
+                .height(155.dp)
+        )
+
+        // Add some space between the logo and the text
+        Spacer(Modifier.height(32.dp))
+
         Text("Home Page", fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(24.dp))
 

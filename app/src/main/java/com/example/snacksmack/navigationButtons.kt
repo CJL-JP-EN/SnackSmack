@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -42,7 +44,15 @@ fun NavigationButtons(navController: NavController) {
                         popUpTo(navController.graph.startDestinationId)
                         launchSingleTop = true
                     }
-                }
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    // This sets the highlight color behind the selected icon
+                    indicatorColor = Color(0xFF008577),
+                    // This sets the color of the icon itself when it's selected
+                    selectedIconColor = Color.White,
+                    // This sets the color for all the other unselected icons
+                    unselectedIconColor = Color.Gray
+                )
             )
         }
     }
