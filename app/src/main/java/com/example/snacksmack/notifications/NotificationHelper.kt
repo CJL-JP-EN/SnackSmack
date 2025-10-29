@@ -1,87 +1,107 @@
+// app/src/main/java/com/example/snacksmack/notifications/NotificationHelper.kt
 package com.example.snacksmack.notifications
 
 import android.Manifest
+import android.R
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
-import androidx.core.app.ActivityCompat
+import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.example.snacksmack.notifications.NotificationHelper
-import com.example.snacksmack.notifications.NotificationScheduler
-import com.example.snacksmack.notifications.ReminderType
-
-import kotlin.random.Random
-
-
 
 object NotificationHelper {
-    const val CHANNEL_ID = "snack_alerts_high"
-    private const val ACTION_DISMISS = "com.example.snacksmack.ACTION_DISMISS"
+
+    private const val CHANNEL_ID_HIGH = "snacksmack.high"
 
     fun createChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val ch = NotificationChannel(
-                CHANNEL_ID, "Snack & Hydration Alerts", NotificationManager.IMPORTANCE_HIGH
+            val channel = NotificationChannel(
+                CHANNEL_ID_HIGH,
+                "High Priority Alerts",
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "High-priority reminders to avoid snacking and drink water"
+                description = "SnackSmack reminders and hydration nudges"
                 enableVibration(true)
+                enableLights(true)
             }
-            (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-                .createNotificationChannel(ch)
+            context.getSystemService(NotificationManager::class.java)
+                .createNotificationChannel(channel)
         }
     }
 
-    private fun pickMessage(
-        type: ReminderType,
-        useHarsh: Boolean
-    ): String = when (type) {
-        ReminderType.SNACK ->
-            if (useHarsh) NotificationTexts.snackHarsh.random()
-            else NotificationTexts.snackSupportive.random()
-        ReminderType.HYDRATION ->
-            NotificationTexts.hydration.random()
-    }
-
-    /** Show a heads-up notification. If persistent=true, user must tap OK action to dismiss. */
+    /** Generic entry used by NotificationReceiver */
     fun show(
         context: Context,
         type: ReminderType,
-        useHarsh: Boolean = true,
+        useHarsh: Boolean,
+        persistent: Boolean
+    ) {
+        when (type) {
+            ReminderType.SNACK     -> showRandom(context, useHarsh, persistent)
+            ReminderType.HYDRATION -> showHydration(context)
+        }
+    }
+
+    // Kept for direct calls elsewhere (e.g., buttons you used to have)
+    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
+    fun showRandom(
+        context: Context,
+        useHarsh: Boolean,
         persistent: Boolean = false
-    ): Int {
-        if (Build.VERSION.SDK_INT >= 33 &&
-            ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
-            != PackageManager.PERMISSION_GRANTED
-        ) return -1
+    ) {
+        val title = "SnackSmack Reminder"
+        val body = if (useHarsh)
+            NotificationTexts.snackHarsh.random()
+        else
+            NotificationTexts.snackSupportive.random()
 
-        val appCtx = context.applicationContext
-        val dismissIntent = Intent(appCtx, DismissReceiver::class.java)
-        val dismissPI = PendingIntent.getBroadcast(
-            appCtx, 0, dismissIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or
-                    (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
-        )
+        val actions = mutableListOf<NotificationCompat.Action>()
+        val ongoing = if (persistent) {
+            val dismissIntent = Intent(context, DismissReceiver::class.java)
+            val dismissPi = PendingIntent.getBroadcast(
+                context, 1001, dismissIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or
+                        (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
+            )
+            actions += NotificationCompat.Action(0, "Dismiss", dismissPi)
+            true
+        } else false
 
-        val msg = pickMessage(type, useHarsh)
-        val notif = NotificationCompat.Builder(appCtx, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle(if (type == ReminderType.HYDRATION) "Hydration Reminder" else "SnackSmack")
-            .setContentText(msg)
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID_HIGH)
+            .setSmallIcon(R.drawable.ic_dialog_info) // built-in icon
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setAutoCancel(!persistent)
-            .setOngoing(persistent)
-            .addAction(android.R.drawable.checkbox_on_background, "OK", dismissPI)
+            .setOngoing(ongoing)
+            .apply { actions.forEach { addAction(it) } }
             .build()
 
-        val id = (System.currentTimeMillis() % Int.MAX_VALUE).toInt()
-        NotificationManagerCompat.from(appCtx).notify(id, notif)
-        return id
+        NotificationManagerCompat.from(context)
+            .notify(System.currentTimeMillis().toInt(), notification)
     }
+
+    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
+    fun showHydration(context: Context) {
+        val title = "Hydration Reminder"
+        val body = NotificationTexts.hydration.random()
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID_HIGH)
+            .setSmallIcon(R.drawable.ic_dialog_info) // built-in icon
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+        NotificationManagerCompat.from(context)
+            .notify(System.currentTimeMillis().toInt(), notification)
+    }
+
+    /** Optional: alias for older call sites */
+    fun showRandomSnackAlert(context: Context, useHarsh: Boolean) =
+        showRandom(context, useHarsh, persistent = false)
 }

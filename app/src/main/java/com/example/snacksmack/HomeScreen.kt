@@ -7,7 +7,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,31 +17,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.snacksmack.notifications.NotificationHelper   // <-- NEW helper import
 import com.google.firebase.auth.FirebaseAuth
-
-// adding for user verification and dipsaying the username
-
-
-// Home Screen
 
 @Composable
 fun HomeScreen() {
     val context = LocalContext.current
     var useHarsh by remember { mutableStateOf(true) }
 
-    // Create high-priority channel once
-    LaunchedEffect(Unit) { NotificationHelper.createHighPriorityChannel(context) }
+    // Create notification channel once (new API)
+    LaunchedEffect(Unit) { NotificationHelper.createChannel(context) }
 
-    // obtain the currently logged in users information if there isnt one then it obtains null
-
+    // Current user (same as your code)
     val currentUser = FirebaseAuth.getInstance().currentUser
     val uid = currentUser?.uid
 
-    // Permission launcher for Android 13+
+    // Android 13+ permission request
     val requestPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                NotificationHelper.showRandomSnackAlert(context, useHarsh)
+                // New API call (persistent=false gives a normal banner)
+                NotificationHelper.showRandom(context, useHarsh = useHarsh, persistent = false)
             }
         }
 
@@ -56,8 +51,7 @@ fun HomeScreen() {
         Image(
             painter = painterResource(id = R.drawable.snacksmack_logo_icon),
             contentDescription = "App Logo",
-            modifier = Modifier
-                .height(155.dp)
+            modifier = Modifier.height(155.dp)
         )
 
         Text(
@@ -72,7 +66,7 @@ fun HomeScreen() {
 
         if (uid != null) {
             Text(
-                text = "$uid",
+                text = uid,
                 fontSize = 22.sp,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
@@ -83,18 +77,19 @@ fun HomeScreen() {
 
         Spacer(Modifier.height(10.dp))
 
+        // TEST button (remove later if you want the app fully auto-scheduled)
         Button(onClick = {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val granted = ContextCompat.checkSelfPermission(
                     context, Manifest.permission.POST_NOTIFICATIONS
                 ) == PackageManager.PERMISSION_GRANTED
                 if (granted) {
-                    NotificationHelper.showRandomSnackAlert(context, useHarsh)
+                    NotificationHelper.showRandom(context, useHarsh = useHarsh, persistent = false)
                 } else {
                     requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
             } else {
-                NotificationHelper.showRandomSnackAlert(context, useHarsh)
+                NotificationHelper.showRandom(context, useHarsh = useHarsh, persistent = false)
             }
         }) {
             Text("Random Snack Alert (banner)")
@@ -102,7 +97,6 @@ fun HomeScreen() {
 
         Spacer(Modifier.height(12.dp))
 
-        // Optional toggle to switch tone without code changes
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(if (useHarsh) "Mode: Harsh" else "Mode: Supportive")
             Spacer(Modifier.width(12.dp))
