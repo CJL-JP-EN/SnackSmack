@@ -18,6 +18,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.google.firebase.auth.FirebaseAuth
+
+// adding for user verification and dipsaying the username
+
 
 // Home Screen
 
@@ -29,6 +33,11 @@ fun HomeScreen() {
     // Create high-priority channel once
     LaunchedEffect(Unit) { NotificationHelper.createHighPriorityChannel(context) }
 
+    // obtain the currently logged in users information if there isnt one then it obtains null
+
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val uid = currentUser?.uid
+
     // Permission launcher for Android 13+
     val requestPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -38,13 +47,12 @@ fun HomeScreen() {
         }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(1.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(5.dp))
 
-        // Add your image here
         Image(
             painter = painterResource(id = R.drawable.snacksmack_logo_icon),
             contentDescription = "App Logo",
@@ -52,11 +60,28 @@ fun HomeScreen() {
                 .height(155.dp)
         )
 
-        // Add some space between the logo and the text
-        Spacer(Modifier.height(32.dp))
+        Text(
+            text = "Welcome Back",
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .align(Alignment.Start)
+                .padding(start = 16.dp)
+        )
+        Spacer(Modifier.height(10.dp))
 
-        Text("Home Page", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(24.dp))
+        if (uid != null) {
+            Text(
+                text = "$uid",
+                fontSize = 22.sp,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(start = 16.dp)
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
 
         Button(onClick = {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
