@@ -37,7 +37,7 @@ fun HomeScreen() {
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
                 // New API call (persistent=false gives a normal banner)
-                NotificationHelper.showRandom(context, useHarsh = useHarsh, persistent = false)
+                NotificationHelper.showRandomSnackAlert(context, useHarsh)
             }
         }
 
@@ -84,12 +84,12 @@ fun HomeScreen() {
                     context, Manifest.permission.POST_NOTIFICATIONS
                 ) == PackageManager.PERMISSION_GRANTED
                 if (granted) {
-                    NotificationHelper.showRandom(context, useHarsh = useHarsh, persistent = false)
+                    NotificationHelper.showRandomSnackAlert(context, useHarsh)
                 } else {
                     requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
             } else {
-                NotificationHelper.showRandom(context, useHarsh = useHarsh, persistent = false)
+                NotificationHelper.showRandomSnackAlert(context, useHarsh)
             }
         }) {
             Text("Random Snack Alert (banner)")

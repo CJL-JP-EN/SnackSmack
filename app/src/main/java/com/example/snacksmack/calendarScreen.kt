@@ -6,7 +6,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import androidx.core.content.edit
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,18 +17,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.edit
+import com.example.snacksmack.notifications.NotificationHelper
+import com.example.snacksmack.notifications.NotificationScheduler
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.text.SimpleDateFormat
-import java.util.Locale
 import java.util.Calendar
+import java.util.Locale
 
-// Data model
+// ---------- Data model (requestCode stored so we can cancel/reschedule) ----------
 data class Event(
     val title: String,
     val description: String?,
     val startTime: String,   // "hh:mm AM/PM"
-    val endTime: String      // "hh:mm AM/PM"
+    val endTime: String,     // "hh:mm AM/PM"
+    val requestCode: Int? = null
 )
 
 private const val PREFS_NAME = "calendar_events"
@@ -53,7 +56,7 @@ private fun loadEvents(context: Context): Map<String, List<Event>> {
 private val dateFmt by lazy { SimpleDateFormat("EEE, MMM d, yyyy", Locale.US) }
 private val timeFmt by lazy { SimpleDateFormat("hh:mm a", Locale.US) }
 
-// Main Calendar Screen
+// Compose screen
 @Composable
 fun CalendarScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -64,13 +67,34 @@ fun CalendarScreen(modifier: Modifier = Modifier) {
     var showCreateDialog by remember { mutableStateOf(false) }
     var editEvent by remember { mutableStateOf<Event?>(null) }
 
-    // Save events whenever they change
+    // One-time: create channel + schedule default daily reminders (snack + hydration)
+    LaunchedEffect(Unit) {
+        NotificationHelper.createChannel(context)
+        val appPrefs = context.getSharedPreferences("snacksmack_init", Context.MODE_PRIVATE)
+        if (!appPrefs.getBoolean("schedules_created", false)) {
+            // 3 snack alerts per day
+            NotificationScheduler.scheduleDailySnackReminders(
+                context,
+                times = listOf(9 to 0, 13 to 0, 19 to 0), // 09:00, 13:00, 19:00
+                useHarsh = true,
+                persistent = false
+            )
+            // Hydration every 2 hours during the day
+            NotificationScheduler.scheduleHydrationEvery2Hours(
+                context,
+                startHour = 8,
+                endHour = 20,
+                persistent = false
+            )
+            appPrefs.edit { putBoolean("schedules_created", true) }
+        }
+    }
+
+    // Persist events any time they change
     LaunchedEffect(events) { saveEvents(context, events) }
 
     LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item {
@@ -86,57 +110,85 @@ fun CalendarScreen(modifier: Modifier = Modifier) {
             Spacer(Modifier.height(16.dp))
         }
 
-        val currentEvents = events[selectedDate] ?: emptyList()
+        val dayEvents = events[selectedDate] ?: emptyList()
 
-        if (currentEvents.isEmpty()) {
+        if (dayEvents.isEmpty()) {
             item { Text("No events for $selectedDate.") }
         } else {
-            items(currentEvents) { event ->
+            items(dayEvents) { ev ->
                 EventCard(
-                    event = event,
+                    event = ev,
                     onDelete = {
+                        // cancel any scheduled alarm for this event
+                        ev.requestCode?.let { NotificationScheduler.cancel(context, it) }
                         val updated = events.toMutableMap()
-                        val dayEvents = updated[selectedDate]?.toMutableList()
-                        if (dayEvents != null) {
-                            dayEvents.remove(event)
-                            if (dayEvents.isEmpty()) updated.remove(selectedDate)
-                            else updated[selectedDate] = dayEvents
-                            events = updated
-                        }
+                        val list = updated[selectedDate]?.toMutableList() ?: mutableListOf()
+                        list.remove(ev)
+                        if (list.isEmpty()) updated.remove(selectedDate) else updated[selectedDate] = list
+                        events = updated
                     },
-                    onEditClick = { editEvent = event }
+                    onEditClick = { editEvent = ev }
                 )
             }
         }
     }
 
-    // Create
+    // Create event
     if (showCreateDialog) {
         CreateOrEditEventDialog(
             onDismiss = { showCreateDialog = false },
             onConfirm = { newEvent ->
-                val updated = events.toMutableMap()
-                val list = updated.getOrPut(selectedDate) { mutableListOf() }.toMutableList()
-                list.add(newEvent)
-                updated[selectedDate] = list
-                events = updated
+                val triggerAt = toEpochMillis(selectedDate, newEvent.startTime)
+                if (triggerAt != null && ensureExactAlarmsAllowed(context)) {
+                    val cal = Calendar.getInstance().apply { timeInMillis = triggerAt }
+                    val rc = NotificationScheduler.scheduleSnackAtDateTime(
+                        context = context,
+                        year = cal.get(Calendar.YEAR),
+                        month0 = cal.get(Calendar.MONTH),
+                        day = cal.get(Calendar.DAY_OF_MONTH),
+                        hour24 = cal.get(Calendar.HOUR_OF_DAY),
+                        minute = cal.get(Calendar.MINUTE),
+                        useHarsh = true,
+                        persistent = false
+                    )
+                    val updated = events.toMutableMap()
+                    val list = updated.getOrPut(selectedDate) { mutableListOf() }.toMutableList()
+                    list.add(newEvent.copy(requestCode = rc))
+                    updated[selectedDate] = list
+                    events = updated
+                }
                 showCreateDialog = false
             }
         )
     }
 
-    // Edit
+    // Edit event
     editEvent?.let { old ->
         CreateOrEditEventDialog(
             initialEvent = old,
             onDismiss = { editEvent = null },
             onConfirm = { upd ->
-                val updated = events.toMutableMap()
-                val list = updated[selectedDate]?.toMutableList()
-                if (list != null) {
+                val triggerAt = toEpochMillis(selectedDate, upd.startTime)
+                if (triggerAt != null && ensureExactAlarmsAllowed(context)) {
+                    // cancel old alarm
+                    old.requestCode?.let { NotificationScheduler.cancel(context, it) }
+                    // schedule new one at the updated start time
+                    val cal = Calendar.getInstance().apply { timeInMillis = triggerAt }
+                    val rc = NotificationScheduler.scheduleSnackAtDateTime(
+                        context = context,
+                        year = cal.get(Calendar.YEAR),
+                        month0 = cal.get(Calendar.MONTH),
+                        day = cal.get(Calendar.DAY_OF_MONTH),
+                        hour24 = cal.get(Calendar.HOUR_OF_DAY),
+                        minute = cal.get(Calendar.MINUTE),
+                        useHarsh = true,
+                        persistent = false
+                    )
+                    val updated = events.toMutableMap()
+                    val list = updated[selectedDate]?.toMutableList() ?: mutableListOf()
                     val idx = list.indexOf(old)
                     if (idx != -1) {
-                        list[idx] = upd
+                        list[idx] = upd.copy(requestCode = rc)
                         updated[selectedDate] = list
                         events = updated
                     }
@@ -147,7 +199,43 @@ fun CalendarScreen(modifier: Modifier = Modifier) {
     }
 }
 
-// Calendar view
+// ---------- Helpers ----------
+
+private fun toEpochMillis(dateStr: String, timeStr: String): Long? {
+    return try {
+        val dateObj = dateFmt.parse(dateStr) ?: return null
+        val timeObj = timeFmt.parse(timeStr) ?: return null
+
+        val d = Calendar.getInstance().apply { time = dateObj }
+        val t = Calendar.getInstance().apply { time = timeObj }
+
+        Calendar.getInstance().apply {
+            set(Calendar.YEAR, d.get(Calendar.YEAR))
+            set(Calendar.MONTH, d.get(Calendar.MONTH))
+            set(Calendar.DAY_OF_MONTH, d.get(Calendar.DAY_OF_MONTH))
+            set(Calendar.HOUR_OF_DAY, t.get(Calendar.HOUR_OF_DAY))
+            set(Calendar.MINUTE, t.get(Calendar.MINUTE))
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun ensureExactAlarmsAllowed(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < 31) return true
+    val am = context.getSystemService(AlarmManager::class.java)
+    if (am.canScheduleExactAlarms()) return true
+    val i = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+        data = Uri.parse("package:${context.packageName}")
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    context.startActivity(i)
+    return false
+}
+
+// Calendar view section
 @Composable
 private fun CalendarViewSection(onDateSelected: (String) -> Unit) {
     AndroidView(
@@ -163,7 +251,7 @@ private fun CalendarViewSection(onDateSelected: (String) -> Unit) {
     )
 }
 
-// Dialog for creating or editing an event — uses ScrollTimePickerDialog (no wheel)
+// Dialog for creating or editing an event (uses scrollable time picker)
 @Composable
 private fun CreateOrEditEventDialog(
     initialEvent: Event? = null,
@@ -251,13 +339,13 @@ private fun CreateOrEditEventDialog(
         dismissButton = { Button(onClick = onDismiss) { Text("Cancel") } }
     )
 
-    // Scroll pickers (replaces TimePickerDialog)
+    // Show scrolling pickers (prefill from existing values if available)
     if (showStartPicker) {
-        val (h, m, am) = parse12h(startTime) ?: Triple(12, 0, true)
+        val parsed = parse12h(startTime) ?: Triple(12, 0, true)
         ScrollTimePickerDialog(
-            initialHour12 = h,
-            initialMinute = m,
-            initialIsAm = am,
+            initialHour12 = parsed.first,
+            initialMinute = parsed.second,
+            initialIsAm = parsed.third,
             onDismiss = { showStartPicker = false },
             onConfirm = { formatted ->
                 startTime = formatted
@@ -268,11 +356,11 @@ private fun CreateOrEditEventDialog(
         )
     }
     if (showEndPicker) {
-        val (h, m, am) = parse12h(endTime) ?: Triple(12, 0, true)
+        val parsed = parse12h(endTime) ?: Triple(12, 0, true)
         ScrollTimePickerDialog(
-            initialHour12 = h,
-            initialMinute = m,
-            initialIsAm = am,
+            initialHour12 = parsed.first,
+            initialMinute = parsed.second,
+            initialIsAm = parsed.third,
             onDismiss = { showEndPicker = false },
             onConfirm = { formatted ->
                 endTime = formatted
@@ -284,7 +372,7 @@ private fun CreateOrEditEventDialog(
     }
 }
 
-// Single event card
+// Single event card (keep in same file)
 @Composable
 private fun EventCard(
     event: Event,
@@ -302,7 +390,6 @@ private fun EventCard(
             Text("Start: ${event.startTime}")
             Text("End: ${event.endTime}")
             event.description?.let { Text(it) }
-
             Spacer(Modifier.height(8.dp))
             Row {
                 Button(onClick = onEditClick, modifier = Modifier.weight(1f)) { Text("Edit") }
@@ -314,31 +401,18 @@ private fun EventCard(
 }
 
 /** Parse "hh:mm AM/PM" into (hour12, minute, isAM) */
-private fun parse12h(s: String): Triple<Int, Int, Boolean>? = try {
-    if (s.isBlank()) null else {
+private fun parse12h(s: String): Triple<Int, Int, Boolean>? {
+    return try {
+        if (s.isBlank()) return null
         val parts = s.trim().split(" ")
-        if (parts.size != 2) null else {
-            val (hhmm, ampm) = parts
-            val hm = hhmm.split(":")
-            if (hm.size != 2) null else {
-                val h = hm[0].toIntOrNull()
-                val m = hm[1].toIntOrNull()
-                if (h == null || m == null) null
-                else Triple(h.coerceIn(1, 12), m.coerceIn(0, 59), ampm.equals("AM", true))
-            }
-        }
+        if (parts.size != 2) return null
+        val (hhmm, ampm) = parts
+        val hm = hhmm.split(":")
+        if (hm.size != 2) return null
+        val h = hm[0].toIntOrNull() ?: return null
+        val m = hm[1].toIntOrNull() ?: return null
+        Triple(h.coerceIn(1, 12), m.coerceIn(0, 59), ampm.equals("AM", true))
+    } catch (_: Exception) {
+        null
     }
-} catch (_: Exception) { null }
-
-/** Exact-alarm permission helper (unchanged; used if you later wire scheduling here) */
-private fun ensureExactAlarmsAllowed(context: Context): Boolean {
-    if (Build.VERSION.SDK_INT < 31) return true
-    val am = context.getSystemService(AlarmManager::class.java)
-    if (am.canScheduleExactAlarms()) return true
-    val i = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-        data = Uri.parse("package:${context.packageName}")
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-    context.startActivity(i)
-    return false
 }
