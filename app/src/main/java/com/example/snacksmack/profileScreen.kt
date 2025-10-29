@@ -25,22 +25,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-//================================================================================
-// 1. STATE HOLDER: A data class to represent the entire screen state.
-//================================================================================
 private data class ProfileScreenState(
     val email: String = "",
     val password: String = "",
-    val height: String = "",
+    val feet: String = "",
+    val inches: String = "",
     val weight: String = "",
     val profileText: String = "Please sign up or log in.",
     val isLoading: Boolean = false
 )
 
-//================================================================================
-// 2. LOGIC HANDLER / EVENT PROCESSOR
-// Handles all business logic, separated from the UI.
-//================================================================================
 private class ProfileScreenEvents(
     private val auth: FirebaseAuth,
     private val db: FirebaseFirestore,
@@ -48,7 +42,11 @@ private class ProfileScreenEvents(
     private val snackbarHostState: SnackbarHostState,
     private val state: MutableState<ProfileScreenState>
 ) {
-    // --- Public Event Handlers ---
+    // --- Conversion Constants ---
+    private val lbsToKg = 0.453592
+    private val metersToFeet = 3.28084
+    private val metersToInches = 39.3701
+
     fun onEmailChange(newValue: String) {
         state.value = state.value.copy(email = newValue)
     }
@@ -57,8 +55,12 @@ private class ProfileScreenEvents(
         state.value = state.value.copy(password = newValue)
     }
 
-    fun onHeightChange(newValue: String) {
-        state.value = state.value.copy(height = newValue)
+    fun onFeetChange(newValue: String) {
+        state.value = state.value.copy(feet = newValue)
+    }
+
+    fun onInchesChange(newValue: String) {
+        state.value = state.value.copy(inches = newValue)
     }
 
     fun onWeightChange(newValue: String) {
@@ -100,21 +102,30 @@ private class ProfileScreenEvents(
             return@launch
         }
 
-        val heightVal = state.value.height.toDoubleOrNull()
-        val weightVal = state.value.weight.toDoubleOrNull()
+        val feetVal = state.value.feet.toDoubleOrNull() ?: 0.0
+        val inchesVal = state.value.inches.toDoubleOrNull() ?: 0.0
+        val weightLbs = state.value.weight.toDoubleOrNull()
 
-        if (heightVal == null || weightVal == null) {
-            showSnackbar("Please enter valid height and weight.")
+        if (weightLbs == null) {
+            showSnackbar("Please enter a valid weight.")
             return@launch
         }
 
         setLoading(true)
         try {
-            val bmi = calculateAndFormatBMI(weightVal, heightVal)
-            val userProfile = mapOf("height" to heightVal, "weight" to weightVal, "bmi" to bmi)
+
+            val heightM = (feetVal / metersToFeet) + (inchesVal / metersToInches)
+            val weightKg = weightLbs * lbsToKg
+
+            val bmi = calculateAndFormatBMI(weightKg, heightM)
+            val userProfile = mapOf("height" to heightM, "weight" to weightKg, "bmi" to bmi) // Store as metric
+
+
             db.collection("users").document(uid).set(userProfile).await()
             showSnackbar("Profile saved!")
-            displayProfile(heightVal, weightVal, bmi)
+
+
+            displayProfile(feetVal, inchesVal, weightLbs, bmi)
         } catch (e: Exception) {
             showSnackbar("Failed to save profile: ${e.message}")
         } finally {
@@ -126,7 +137,7 @@ private class ProfileScreenEvents(
         auth.currentUser?.uid?.let { loadProfileData(it) }
     }
 
-    // --- Private Helper Functions ---
+    // --- Private Helper Functions (Updated) ---
     private fun setLoading(isLoading: Boolean) {
         state.value = state.value.copy(isLoading = isLoading)
     }
@@ -140,11 +151,25 @@ private class ProfileScreenEvents(
         db.collection("users").document(uid).get()
             .addOnSuccessListener { doc ->
                 if (doc != null && doc.exists()) {
-                    val loadedHeight = doc.getDouble("height")
-                    val loadedWeight = doc.getDouble("weight")
-                    if (loadedHeight != null && loadedWeight != null) {
-                        val bmi = calculateAndFormatBMI(loadedWeight, loadedHeight)
-                        displayProfile(loadedHeight, loadedWeight, bmi)
+                    val loadedHeightM = doc.getDouble("height")
+                    val loadedWeightKg = doc.getDouble("weight")
+
+                    if (loadedHeightM != null && loadedWeightKg != null) {
+
+                        val totalInches = loadedHeightM * metersToInches
+                        val feet = (totalInches / 12).toInt()
+                        val inches = totalInches % 12
+                        val weightLbs = loadedWeightKg / lbsToKg
+
+
+                        state.value = state.value.copy(
+                            feet = feet.toString(),
+                            inches = (Math.round(inches * 10.0) / 10.0).toString(),
+                            weight = (Math.round(weightLbs * 10.0) / 10.0).toString()
+                        )
+
+                        val bmi = calculateAndFormatBMI(loadedWeightKg, loadedHeightM)
+                        displayProfile(feet.toDouble(), inches, weightLbs, bmi)
                     } else {
                         updateProfileText("Welcome! Please save your height and weight.")
                     }
@@ -158,14 +183,15 @@ private class ProfileScreenEvents(
         state.value = state.value.copy(profileText = text)
     }
 
-    private fun displayProfile(heightVal: Double, weightVal: Double, bmiVal: Double) {
+    private fun displayProfile(feet: Double, inches: Double, weightLbs: Double, bmiVal: Double) {
         val text = """
-            📏 Height: $heightVal m
-            ⚖️ Weight: $weightVal kg
+            📏 Height: ${feet.toInt()}' ${Math.round(inches * 10.0) / 10.0}"
+            ⚖️ Weight: ${Math.round(weightLbs * 10.0) / 10.0} lbs
             💪 BMI: $bmiVal
         """.trimIndent()
         updateProfileText(text)
     }
+
     private fun calculateAndFormatBMI(weightKg: Double, heightM: Double): Double {
         if (heightM == 0.0) return 0.0
         return (weightKg / (heightM * heightM)).let { Math.round(it * 10.0) / 10.0 }
@@ -180,17 +206,12 @@ private class ProfileScreenEvents(
     }
 }
 
-//================================================================================
-// 3. MAIN COMPOSABLE: The orchestrator.
-// It holds the state and connects the UI with the logic.
-//================================================================================
 @Composable
 fun ProfileScreen() {
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val state = remember { mutableStateOf(ProfileScreenState()) }
 
-    // Memoize the events handler to avoid recreating it on every recomposition.
     val events = remember(coroutineScope, snackbarHostState) {
         ProfileScreenEvents(
             auth = FirebaseAuth.getInstance(),
@@ -201,7 +222,6 @@ fun ProfileScreen() {
         )
     }
 
-    // Load user data when the screen is first displayed or user changes.
     LaunchedEffect(Unit) {
         events.loadProfileDataForCurrentUser()
     }
@@ -215,10 +235,6 @@ fun ProfileScreen() {
     }
 }
 
-//================================================================================
-// 4. STATELESS UI COMPOSABLES: Dumb components that just display state
-// and pass events up.
-//================================================================================
 @Composable
 private fun ProfileScreenContent(
     modifier: Modifier = Modifier,
@@ -250,10 +266,12 @@ private fun ProfileScreenContent(
         Spacer(Modifier.height(24.dp))
 
         HealthDataSection(
-            height = state.height,
+            feet = state.feet,
+            inches = state.inches,
             weight = state.weight,
             isLoading = state.isLoading,
-            onHeightChange = events::onHeightChange,
+            onFeetChange = events::onFeetChange,
+            onInchesChange = events::onInchesChange,
             onWeightChange = events::onWeightChange,
             onSaveClick = events::onSaveProfile
         )
@@ -316,27 +334,44 @@ private fun AuthenticationSection(
 
 @Composable
 private fun HealthDataSection(
-    height: String,
+    feet: String,
+    inches: String,
     weight: String,
     isLoading: Boolean,
-    onHeightChange: (String) -> Unit,
+    onFeetChange: (String) -> Unit,
+    onInchesChange: (String) -> Unit,
     onWeightChange: (String) -> Unit,
     onSaveClick: () -> Unit
 ) {
-    OutlinedTextField(
-        value = height,
-        onValueChange = onHeightChange,
-        label = { Text("Height (m)") },
-        leadingIcon = { Icon(Icons.Default.Straighten, "Height") },
+    // Updated UI for Feet and Inches
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        enabled = !isLoading
-    )
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedTextField(
+            value = feet,
+            onValueChange = onFeetChange,
+            label = { Text("Height (ft)") },
+            leadingIcon = { Icon(Icons.Default.Straighten, "Height") },
+            modifier = Modifier.weight(1f),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            enabled = !isLoading
+        )
+        OutlinedTextField(
+            value = inches,
+            onValueChange = onInchesChange,
+            label = { Text("in") },
+            modifier = Modifier.weight(1f),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            enabled = !isLoading
+        )
+    }
     Spacer(Modifier.height(8.dp))
     OutlinedTextField(
         value = weight,
         onValueChange = onWeightChange,
-        label = { Text("Weight (kg)") },
+        label = { Text("Weight (lbs)") }, // Updated label
         leadingIcon = { Icon(Icons.Default.MonitorWeight, "Weight") },
         modifier = Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -354,4 +389,5 @@ private fun HealthDataSection(
         }
     }
 }
+
 
