@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.snacksmack"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -42,7 +42,7 @@ android {
 
 dependencies {
     //added navigation dependencies
-    implementation("androidx.navigation:navigation-compose:2.8.0")
+    implementation("androidx.navigation:navigation-compose:2.9.5")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -65,4 +65,6 @@ dependencies {
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
+    implementation(libs.androidx.material.icons.extended)
+    implementation("com.google.code.gson:gson:2.13.2")
 }

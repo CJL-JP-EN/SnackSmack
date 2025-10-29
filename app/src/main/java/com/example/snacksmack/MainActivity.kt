@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
             SnackSmackTheme {
                 val navController = rememberNavController()
                 Scaffold(
-                    bottomBar = { navigationButtons(navController = navController) }
+                    bottomBar = { NavigationButtons(navController = navController) }
                 ) { innerPadding ->
                     NavHost(
                         navController = navController,
@@ -29,10 +29,9 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding)
                     ) {
                         composable("home") { HomeScreen() }
-                        composable("progress") { progressScreen() }
-                        composable("profile") { profileScreen() }
+                        composable("profile") { ProfileScreen() }
                         composable("waterTracking") { waterTrackingScreen() }
-                        composable("calendar") { calendarScreen() }
+                        composable("calendar") { CalendarScreen() }
                     }
                 }
             }
