@@ -32,7 +32,8 @@ private data class ProfileScreenState(
     val inches: String = "",
     val weight: String = "",
     val profileText: String = "Please sign up or log in.",
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val isLoggedIn: Boolean = false
 )
 
 private class ProfileScreenEvents(
@@ -42,10 +43,19 @@ private class ProfileScreenEvents(
     private val snackbarHostState: SnackbarHostState,
     private val state: MutableState<ProfileScreenState>
 ) {
-    // --- Conversion Constants ---
     private val lbsToKg = 0.453592
     private val metersToFeet = 3.28084
     private val metersToInches = 39.3701
+
+    init {
+        auth.addAuthStateListener { firebaseAuth ->
+            val user = firebaseAuth.currentUser
+            state.value = state.value.copy(isLoggedIn = user != null)
+            if (user == null) {
+                clearState()
+            }
+        }
+    }
 
     fun onEmailChange(newValue: String) {
         state.value = state.value.copy(email = newValue)
@@ -95,6 +105,11 @@ private class ProfileScreenEvents(
         }
     }
 
+    fun onLogout() {
+        auth.signOut()
+        showSnackbar("You have been logged out.")
+    }
+
     fun onSaveProfile() = coroutineScope.launch {
         val uid = auth.currentUser?.uid
         if (uid == null) {
@@ -113,17 +128,13 @@ private class ProfileScreenEvents(
 
         setLoading(true)
         try {
-
             val heightM = (feetVal / metersToFeet) + (inchesVal / metersToInches)
             val weightKg = weightLbs * lbsToKg
-
             val bmi = calculateAndFormatBMI(weightKg, heightM)
-            val userProfile = mapOf("height" to heightM, "weight" to weightKg, "bmi" to bmi) // Store as metric
-
+            val userProfile = mapOf("height" to heightM, "weight" to weightKg, "bmi" to bmi)
 
             db.collection("users").document(uid).set(userProfile).await()
             showSnackbar("Profile saved!")
-
 
             displayProfile(feetVal, inchesVal, weightLbs, bmi)
         } catch (e: Exception) {
@@ -137,7 +148,6 @@ private class ProfileScreenEvents(
         auth.currentUser?.uid?.let { loadProfileData(it) }
     }
 
-    // --- Private Helper Functions (Updated) ---
     private fun setLoading(isLoading: Boolean) {
         state.value = state.value.copy(isLoading = isLoading)
     }
@@ -155,12 +165,10 @@ private class ProfileScreenEvents(
                     val loadedWeightKg = doc.getDouble("weight")
 
                     if (loadedHeightM != null && loadedWeightKg != null) {
-
                         val totalInches = loadedHeightM * metersToInches
                         val feet = (totalInches / 12).toInt()
                         val inches = totalInches % 12
                         val weightLbs = loadedWeightKg / lbsToKg
-
 
                         state.value = state.value.copy(
                             feet = feet.toString(),
@@ -181,6 +189,10 @@ private class ProfileScreenEvents(
 
     private fun updateProfileText(text: String) {
         state.value = state.value.copy(profileText = text)
+    }
+
+    private fun clearState() {
+        state.value = ProfileScreenState()
     }
 
     private fun displayProfile(feet: Double, inches: Double, weightLbs: Double, bmiVal: Double) {
@@ -258,10 +270,12 @@ private fun ProfileScreenContent(
             email = state.email,
             password = state.password,
             isLoading = state.isLoading,
+            isLoggedIn = state.isLoggedIn,
             onEmailChange = events::onEmailChange,
             onPasswordChange = events::onPasswordChange,
             onLoginClick = events::onLogin,
-            onSignUpClick = events::onSignUp
+            onSignUpClick = events::onSignUp,
+            onLogoutClick = events::onLogout
         )
         Spacer(Modifier.height(24.dp))
 
@@ -296,38 +310,54 @@ private fun AuthenticationSection(
     email: String,
     password: String,
     isLoading: Boolean,
+    isLoggedIn: Boolean,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onLoginClick: () -> Unit,
-    onSignUpClick: () -> Unit
+    onSignUpClick: () -> Unit,
+    onLogoutClick: () -> Unit
 ) {
-    OutlinedTextField(
-        value = email,
-        onValueChange = onEmailChange,
-        label = { Text("Email") },
-        leadingIcon = { Icon(Icons.Default.Email, "Email") },
-        modifier = Modifier.fillMaxWidth(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-        enabled = !isLoading
-    )
-    Spacer(Modifier.height(8.dp))
-    OutlinedTextField(
-        value = password,
-        onValueChange = onPasswordChange,
-        label = { Text("Password") },
-        leadingIcon = { Icon(Icons.Default.Lock, "Password") },
-        modifier = Modifier.fillMaxWidth(),
-        visualTransformation = PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        enabled = !isLoading
-    )
-    Spacer(Modifier.height(16.dp))
+    if (!isLoggedIn) {
+        OutlinedTextField(
+            value = email,
+            onValueChange = onEmailChange,
+            label = { Text("Email") },
+            leadingIcon = { Icon(Icons.Default.Email, "Email") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            enabled = !isLoading
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = password,
+            onValueChange = onPasswordChange,
+            label = { Text("Password") },
+            leadingIcon = { Icon(Icons.Default.Lock, "Password") },
+            modifier = Modifier.fillMaxWidth(),
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            enabled = !isLoading
+        )
+        Spacer(Modifier.height(16.dp))
+    }
+
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = onLoginClick, modifier = Modifier.weight(1f), enabled = !isLoading) {
-            Text("Login")
-        }
-        OutlinedButton(onClick = onSignUpClick, modifier = Modifier.weight(1f), enabled = !isLoading) {
-            Text("Sign Up")
+        if (isLoggedIn) {
+            Button(
+                onClick = onLogoutClick,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("Logout")
+            }
+        } else {
+            Button(onClick = onLoginClick, modifier = Modifier.weight(1f), enabled = !isLoading) {
+                Text("Login")
+            }
+            OutlinedButton(onClick = onSignUpClick, modifier = Modifier.weight(1f), enabled = !isLoading) {
+                Text("Sign Up")
+            }
         }
     }
 }
@@ -343,7 +373,6 @@ private fun HealthDataSection(
     onWeightChange: (String) -> Unit,
     onSaveClick: () -> Unit
 ) {
-    // Updated UI for Feet and Inches
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -371,7 +400,7 @@ private fun HealthDataSection(
     OutlinedTextField(
         value = weight,
         onValueChange = onWeightChange,
-        label = { Text("Weight (lbs)") }, // Updated label
+        label = { Text("Weight (lbs)") },
         leadingIcon = { Icon(Icons.Default.MonitorWeight, "Weight") },
         modifier = Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -389,5 +418,6 @@ private fun HealthDataSection(
         }
     }
 }
+
 
 
