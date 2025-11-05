@@ -41,7 +41,6 @@ fun SignUpScreen() {
             onValueChange = { email = it },
             label = { Text("Email") },
             leadingIcon = { Icon(Icons.Default.Email, "Email") },
-            modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             isError = emailError != null
         )
@@ -60,7 +59,6 @@ fun SignUpScreen() {
             onValueChange = { username = it },
             label = { Text("Username") },
             leadingIcon = { Icon(Icons.Default.AccountCircle, "Username") },
-            modifier = Modifier.fillMaxWidth(),
             isError = usernameError != null
         )
         usernameError?.let {
@@ -78,7 +76,6 @@ fun SignUpScreen() {
             onValueChange = { password = it },
             label = { Text("Password") },
             leadingIcon = { Icon(Icons.Default.Lock, "Password") },
-            modifier = Modifier.fillMaxWidth(),
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
         )
@@ -86,7 +83,6 @@ fun SignUpScreen() {
 
         Button(
             onClick = {},
-            modifier = Modifier.fillMaxWidth(),
             enabled = !isLoading,
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
         ) {
