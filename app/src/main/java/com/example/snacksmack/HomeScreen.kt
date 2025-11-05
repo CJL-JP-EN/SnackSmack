@@ -1,8 +1,5 @@
 package com.example.snacksmack
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -16,21 +13,36 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
-import com.example.snacksmack.notifications.NotificationHelper   // <-- NEW helper import
+import com.example.snacksmack.notifications.NotificationHelper
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(){
     val context = LocalContext.current
     var useHarsh by remember { mutableStateOf(true) }
+    var bmiValue by remember { mutableStateOf<Float?>(null) } // Add state for BMI
 
-    // Create notification channel once (new API)
+    // Create notification channel one (new API)
     LaunchedEffect(Unit) { NotificationHelper.createChannel(context) }
 
     // Current user (same as your code)
     val currentUser = FirebaseAuth.getInstance().currentUser
     val uid = currentUser?.uid
+
+    // Fetch BMI from Firebase
+    if (uid != null) {
+        LaunchedEffect(uid) {
+            val db = FirebaseFirestore.getInstance()
+            db.collection("users").document(uid).get()
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        bmiValue = document.getDouble("bmi")?.toFloat()
+                    }
+                }
+        }
+    }
+
 
     // Android 13+ permission request
     val requestPermissionLauncher =
@@ -77,32 +89,6 @@ fun HomeScreen() {
 
         Spacer(Modifier.height(10.dp))
 
-        // TEST button (remove later if you want the app fully auto-scheduled)
-        Button(onClick = {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val granted = ContextCompat.checkSelfPermission(
-                    context, Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
-                if (granted) {
-                    NotificationHelper.showRandomSnackAlert(context, useHarsh)
-                } else {
-                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-            } else {
-                NotificationHelper.showRandomSnackAlert(context, useHarsh)
-            }
-        }) {
-            Text("Random Snack Alert (banner)")
+        bmiLine(bmiValue = bmiValue)
         }
-
-        Spacer(Modifier.height(12.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(if (useHarsh) "Mode: Harsh" else "Mode: Supportive")
-            Spacer(Modifier.width(12.dp))
-            Button(onClick = { useHarsh = !useHarsh }) {
-                Text("Toggle Tone")
-            }
-        }
-    }
 }
