@@ -96,7 +96,7 @@ private fun WaterTrackingInternal(
                     "🎉 Congrats! You reached your goal for the day!",
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = 18.sp,
-                        color = Color(0xFF00897B)
+                        color = Color(0xFF1976D2)
                     ),
                     modifier = Modifier.graphicsLayer(alpha = congratsAlpha)
                 )
@@ -291,7 +291,7 @@ private fun WeeklyProgressSection(
                             .width(28.dp)
                             .height(barMaxHeight * anim)
                             .background(
-                                if (value >= goalOz && goalOz > 0) Color(0xFF00796B)
+                                if (value >= goalOz && goalOz > 0) Color(0xFF1976D2)
                                 else Color(0xFF4FC3F7)
                             )
                     )
