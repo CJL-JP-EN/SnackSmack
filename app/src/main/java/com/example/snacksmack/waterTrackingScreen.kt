@@ -1,17 +1,14 @@
 package com.example.snacksmack
 
 import androidx.activity.ComponentActivity
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBackIos
+import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,29 +25,35 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.animation.core.animateFloat
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
 
-
-/* ---------- PUBLIC (one-liner) ---------- */
 @Composable
-fun waterTrackingScreen(
+fun WaterTrackingScreen(
     owner: ViewModelStoreOwner = LocalContext.current as ComponentActivity
 ) {
     val vm: WaterViewModel = viewModel(owner)
+
+    LaunchedEffect(Unit) {
+        vm.resetIfNewDay()
+    }
+
     WaterTrackingInternal(
-        progress         = vm.progress,
-        goalOz           = vm.goalOz,
-        consumedOz       = vm.consumedOz,
-        cupIncrementOz   = vm.cupIncrementOz,
-        onAddCup         = vm::addCup,
-        onRemoveCup      = vm::removeCup,
-        onSetGoal        = vm::updateGoalOz,
+        progress = vm.progress,
+        goalOz = vm.goalOz,
+        consumedOz = vm.consumedOz,
+        cupIncrementOz = vm.cupIncrementOz,
+        onAddCup = vm::addCup,
+        onRemoveCup = vm::removeCup,
+        onSetGoal = vm::updateGoalOz,
         shouldPromptGoal = vm.shouldPromptGoalOnce(),
-        onPromptSeen     = vm::markGoalPromptSeen
+        onPromptSeen = vm::markGoalPromptSeen
     )
 }
 
-/* ---------- PRIVATE UI ---------- */
+/* ---------- UI ---------- */
 @Composable
 private fun WaterTrackingInternal(
     progress: Float,
@@ -70,7 +73,6 @@ private fun WaterTrackingInternal(
         label = "congrats"
     )
     val pulse = rememberPulse(animated >= 1f)
-
     var showGoalDialog by remember { mutableStateOf(shouldPromptGoal) }
 
     Column(
@@ -81,71 +83,240 @@ private fun WaterTrackingInternal(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                "Water Tracking",
+            Text("Water Tracking",
                 style = MaterialTheme.typography.headlineSmall.copy(fontSize = 28.sp)
             )
-            Spacer(Modifier.size(6.dp))
+            Spacer(Modifier.height(6.dp))
             Text("Goal: ${goalOz}oz • Drank: ${consumedOz}oz • Cup: +${cupIncrementOz}oz")
             Text("Progress: ${(animated * 100).toInt()}%")
-        }
 
-        if (congratsAlpha > 0f) {
-            Spacer(Modifier.size(8.dp))
-            Text(
-                "🎉 Congrats! You reached your goal for the day!",
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = 18.sp,
-                    color = Color(0xFF00897B)
-                ),
-                modifier = Modifier.graphicsLayer(alpha = congratsAlpha)
-            )
-        }
-
-        Spacer(Modifier.size(16.dp))
-
-        // Cup area
-        Box(
-            modifier = Modifier
-                .size(260.dp)
-                .clickable { onAddCup() },
-            contentAlignment = Alignment.Center
-        ) {
-            Canvas(Modifier.fillMaxSize()) { drawCupWithRing(animated, pulse) }
-            Text(
-                text = "${consumedOz} oz",
-                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp),
-                color = Color(0xFF2F3A40)
-            )
-        }
-
-        Spacer(Modifier.size(16.dp))
-
-        // Buttons row
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = onRemoveCup) { Text(text = "−${cupIncrementOz}oz") }
-            Button(onClick = onAddCup) { Text(text = "+${cupIncrementOz}oz") }
-            OutlinedButton(onClick = { showGoalDialog = true }) { Text("Set goal") }
-        }
-    }
-
-    if (showGoalDialog) {
-        GoalDialog(
-            currentGoal = goalOz,
-            step = cupIncrementOz,
-            onDismiss = {
-                showGoalDialog = false
-                onPromptSeen()
-            },
-            onSave = { newGoal ->
-                onSetGoal(newGoal)
-                onPromptSeen()
-                showGoalDialog = false
+            if (congratsAlpha > 0f) {
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    "🎉 Congrats! You reached your goal for the day!",
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = 18.sp,
+                        color = Color(0xFF1976D2)
+                    ),
+                    modifier = Modifier.graphicsLayer(alpha = congratsAlpha)
+                )
             }
-        )
+
+            Spacer(Modifier.size(12.dp))
+
+            // Cup progress ring (💧 your cup graphic)
+            Box(
+                modifier = Modifier
+                    .size(260.dp)
+                    .clickable { onAddCup() },
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(Modifier.fillMaxSize()) { drawCupWithRing(animated, pulse) }
+                Text(
+                    text = "${consumedOz} oz",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp),
+                    color = Color(0xFF2F3A40)
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Buttons ABOVE weekly progress
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = onRemoveCup) { Text("−${cupIncrementOz}oz") }
+                Button(onClick = onAddCup) { Text("+${cupIncrementOz}oz") }
+                OutlinedButton(onClick = { showGoalDialog = true }) { Text("Set goal") }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Weekly progress section (bottom)
+        WeeklyProgressSection(goalOz = goalOz)
+
+        if (showGoalDialog) {
+            GoalDialog(
+                currentGoal = goalOz,
+                step = cupIncrementOz,
+                onDismiss = {
+                    showGoalDialog = false
+                    onPromptSeen()
+                },
+                onSave = { newGoal ->
+                    onSetGoal(newGoal)
+                    onPromptSeen()
+                    showGoalDialog = false
+                }
+            )
+        }
     }
 }
-/* ---------- PRIVATE helpers ---------- */
+/* ---------- GOAL DIALOG ---------- */
+@Composable
+private fun GoalDialog(
+    currentGoal: Int,
+    step: Int,
+    onDismiss: () -> Unit,
+    onSave: (Int) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Set Daily Goal") },
+        text = {
+            Column {
+                Text(
+                    "Enter your daily water goal in ounces.\nIt must be a multiple of $step oz.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.size(12.dp))
+                var text by remember { mutableStateOf(currentGoal.toString()) }
+                fun sanitized(s: String) = s.filter { it.isDigit() }.take(4)
+
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = sanitized(it) },
+                    singleLine = true,
+                    label = { Text("Goal (oz)") }
+                )
+                Spacer(Modifier.size(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(48, 64, 80, 96).forEach { preset ->
+                        OutlinedButton(onClick = { text = preset.toString() }) {
+                            Text("${preset}oz")
+                        }
+                    }
+                }
+                Spacer(Modifier.size(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        val v = text.toIntOrNull() ?: currentGoal
+                        text = (v - step).coerceAtLeast(step).toString()
+                    }) { Text("−${step}oz") }
+                    OutlinedButton(onClick = {
+                        val v = text.toIntOrNull() ?: currentGoal
+                        text = (v + step).toString()
+                    }) { Text("+${step}oz") }
+                }
+
+                val value = text.toIntOrNull()
+                val valid = value != null && value >= step && value % step == 0
+                if (!valid) {
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        "Goal must be at least ${step}oz and a multiple of ${step}.",
+                        color = Color(0xFFB00020),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Spacer(Modifier.size(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    Button(onClick = { value?.let(onSave) }, enabled = valid) { Text("Save") }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {}
+    )
+}
+
+
+/* ---------- WEEKLY SECTION ---------- */
+@Composable
+private fun WeeklyProgressSection(
+    goalOz: Int,
+    owner: ViewModelStoreOwner = LocalContext.current as ComponentActivity
+) {
+    val vm: WaterViewModel = viewModel(owner)
+    var currentWeekOffset by remember { mutableStateOf(0) }
+
+    val today = LocalDate.now()
+    val formatter = DateTimeFormatter.ofPattern("MMM d")
+
+    val startOfWeek = today.minusWeeks(currentWeekOffset.toLong()).with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
+
+    val weeklyData = vm.getWeeklyData(startOfWeek)
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("Weekly Progress", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+
+        // Arrow controls
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { currentWeekOffset++ }) {
+                Icon(Icons.Default.ArrowBackIos, contentDescription = "Previous week")
+            }
+            val endOfWeek = startOfWeek.plusDays(6)
+            Text(
+                text = "Week of ${startOfWeek.format(formatter)} - ${endOfWeek.format(formatter)}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            IconButton(onClick = { if (currentWeekOffset > 0) currentWeekOffset-- }) {
+                Icon(Icons.Default.ArrowForwardIos, contentDescription = "Next week")
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        // Bar graph
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp)
+        ) {
+            val sortedData = weeklyData.entries.sortedBy { it.key }
+            val barMaxHeight = 100.dp
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(barMaxHeight),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                sortedData.forEach { (date, value) ->
+                    val percent = if (goalOz > 0) (value.toFloat() / goalOz).coerceIn(0f, 1f) else 0f
+                    val anim by animateFloatAsState(
+                        targetValue = percent,
+                        animationSpec = tween(700, easing = FastOutSlowInEasing),
+                        label = "barAnim"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .width(28.dp)
+                            .height(barMaxHeight * anim)
+                            .background(
+                                if (value >= goalOz && goalOz > 0) Color(0xFF1976D2)
+                                else Color(0xFF4FC3F7)
+                            )
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
+                sortedData.forEach { (date, _) ->
+                    Text(
+                        date.dayOfWeek.name.take(3),
+                        fontSize = 12.sp,
+                        color = Color(0xFF004D40)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/* ---------- HELPERS ---------- */
 @Composable
 private fun rememberAnimatedProgress(target: Float): Float {
     val anim = remember { Animatable(target) }
@@ -175,7 +346,6 @@ private fun rememberPulse(enabled: Boolean): Float {
     return p
 }
 
-/* ---------- PRIVATE drawing ---------- */
 private fun DrawScope.drawCupWithRing(progress: Float, pulse: Float) {
     val w = size.width
     val h = size.height
@@ -183,6 +353,7 @@ private fun DrawScope.drawCupWithRing(progress: Float, pulse: Float) {
     val center = Offset(w / 2f, h / 2.2f)
     val ringStroke = w * 0.06f
 
+    // Outer ring
     drawArc(
         color = Color(0xFF2F3A40).copy(alpha = 0.18f),
         startAngle = -90f,
@@ -193,6 +364,7 @@ private fun DrawScope.drawCupWithRing(progress: Float, pulse: Float) {
         style = Stroke(width = ringStroke, cap = StrokeCap.Round)
     )
 
+    // Progress ring
     drawArc(
         color = Color(0xFF6BAFD6),
         startAngle = -90f,
@@ -203,19 +375,7 @@ private fun DrawScope.drawCupWithRing(progress: Float, pulse: Float) {
         style = Stroke(width = ringStroke, cap = StrokeCap.Round)
     )
 
-    if (progress >= 1f) {
-        val glow = ringStroke * (1f + 0.25f * pulse)
-        drawArc(
-            color = Color(0xFF6BAFD6).copy(alpha = 0.25f + 0.35f * pulse),
-            startAngle = -90f,
-            sweepAngle = 360f,
-            useCenter = false,
-            topLeft = Offset(center.x - radius, center.y - radius),
-            size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
-            style = Stroke(width = glow, cap = StrokeCap.Round)
-        )
-    }
-
+    // Cup body and fill
     val cupTopWidth = w * 0.42f
     val cupBottomWidth = w * 0.30f
     val cupHeight = h * 0.42f
@@ -249,82 +409,4 @@ private fun DrawScope.drawCupWithRing(progress: Float, pulse: Float) {
         close()
     }
     drawPath(water, Color(0xFF6BAFD6).copy(alpha = 0.9f))
-}
-
-/* ---------- GOAL DIALOG ---------- */
-@Composable
-private fun GoalDialog(
-    currentGoal: Int,
-    step: Int,
-    onDismiss: () -> Unit,
-    onSave: (Int) -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Set Daily Goal") },
-        text = {
-            Column {
-                Text(
-                    text = "Enter your daily water goal in ounces.\nIt must be a multiple of $step oz.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Spacer(Modifier.size(12.dp))
-
-                var text by remember { mutableStateOf(currentGoal.toString()) }
-                fun sanitized(s: String) = s.filter { it.isDigit() }.take(4)
-
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = sanitized(it) },
-                    singleLine = true,
-                    label = { Text("Goal (oz)") }
-                )
-
-                Spacer(Modifier.size(12.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(48, 64, 80, 96).forEach { preset ->
-                        OutlinedButton(onClick = { text = preset.toString() }) {
-                            Text("${preset}oz")
-                        }
-                    }
-                }
-
-                Spacer(Modifier.size(8.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = {
-                        val v = text.toIntOrNull() ?: currentGoal
-                        text = (v - step).coerceAtLeast(step).toString()
-                    }) { Text("−${step}oz") }
-
-                    OutlinedButton(onClick = {
-                        val v = text.toIntOrNull() ?: currentGoal
-                        text = (v + step).toString()
-                    }) { Text("+${step}oz") }
-                }
-
-                val value = text.toIntOrNull()
-                val valid = value != null && value >= step && value % step == 0
-
-                if (!valid) {
-                    Spacer(Modifier.size(8.dp))
-                    Text(
-                        "Goal must be at least ${step}oz and a multiple of ${step}.",
-                        color = Color(0xFFB00020),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                Spacer(Modifier.size(12.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
-                    Button(onClick = { value?.let(onSave) }, enabled = valid) { Text("Save") }
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = {}
-    )
 }
