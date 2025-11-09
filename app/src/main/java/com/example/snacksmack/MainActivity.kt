@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         composable("home") { HomeScreen() }
                         composable("profile") { ProfileScreen(navController) }
-                        composable("waterTracking") { waterTrackingScreen() }
+                        composable("waterTracking") { WaterTrackingScreen() }
                         composable("calendar") { CalendarScreen() }
                         composable("login") {
                             LoginScreen(
