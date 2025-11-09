@@ -46,7 +46,6 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit = {}) {
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(40.dp))
 
             Image(
                 painter = painterResource(id = R.drawable.snacksmack_logo_icon),
@@ -54,7 +53,7 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit = {}) {
                 modifier = Modifier.height(180.dp)
             )
 
-            Spacer(modifier = Modifier.height(30.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = "Create an account",
@@ -64,7 +63,7 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit = {}) {
                     .align(Alignment.CenterHorizontally)
             )
 
-            Spacer(modifier = Modifier.height(60.dp))
+            Spacer(modifier = Modifier.height(30.dp))
 
             OutlinedTextField(
                 value = email,
@@ -72,6 +71,7 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit = {}) {
                 label = { Text("Email") },
                 leadingIcon = { Icon(Icons.Default.Email, "Email") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                modifier = Modifier.fillMaxWidth(),
                 isError = error?.contains("email", ignoreCase = true) == true
             )
 
@@ -82,6 +82,7 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit = {}) {
                 onValueChange = { username = it.lowercase().trim() },
                 label = { Text("Username") },
                 leadingIcon = { Icon(Icons.Default.AccountCircle, "Username") },
+                modifier = Modifier.fillMaxWidth(),
                 isError = error?.contains("username", ignoreCase = true) == true
             )
 
@@ -94,6 +95,7 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit = {}) {
                 leadingIcon = { Icon(Icons.Default.Lock, "Password") },
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth(),
                 isError = error != null
             )
 
@@ -188,7 +190,7 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit = {}) {
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
-                    Text("Create an account")
+                    Text("Continue")
                 }
             }
         }
