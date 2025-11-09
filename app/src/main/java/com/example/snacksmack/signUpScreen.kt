@@ -2,7 +2,9 @@ package com.example.snacksmack
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Email
@@ -24,7 +26,10 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 @Composable
-fun SignUpScreen(onSignUpSuccess: () -> Unit = {}) {
+fun SignUpScreen(
+    onSignUpSuccess: () -> Unit = {},
+    onNavigateToLogin: () -> Unit = {}
+) {
     var email by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -43,9 +48,11 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit = {}) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(it)
-                .padding(32.dp),
+                .padding(32.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(40.dp))
 
             Image(
                 painter = painterResource(id = R.drawable.snacksmack_logo_icon),
@@ -53,7 +60,7 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit = {}) {
                 modifier = Modifier.height(180.dp)
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(30.dp))
 
             Text(
                 text = "Create an account",
@@ -63,7 +70,7 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit = {}) {
                     .align(Alignment.CenterHorizontally)
             )
 
-            Spacer(modifier = Modifier.height(30.dp))
+            Spacer(modifier = Modifier.height(60.dp))
 
             OutlinedTextField(
                 value = email,
@@ -96,7 +103,7 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit = {}) {
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth(),
-                isError = error != null
+                isError = error?.contains("fields", ignoreCase = true) == true
             )
 
             error?.let {
@@ -133,29 +140,15 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit = {}) {
                                             val uid = firebaseUser.uid
                                             val batch = db.batch()
 
-                                            // 1. Create username-to-UID mapping
                                             val usernameRef = db.collection("usernames").document(username)
-                                            val usernameMapping = hashMapOf("uid" to uid)
-                                            batch.set(usernameRef, usernameMapping)
+                                            batch.set(usernameRef, mapOf("uid" to uid))
 
-                                            // 2. Create userAccountInfo sub-collection
                                             val accountRef = db.collection("users").document(uid).collection("userAccountInfo").document("account")
-                                            val accountInfo = hashMapOf(
-                                                "email" to email,
-                                                "username" to username
-                                            )
-                                            batch.set(accountRef, accountInfo)
+                                            batch.set(accountRef, mapOf("email" to email, "username" to username))
 
-                                            // 3. Create userPersonalInfo sub-collection
                                             val personalRef = db.collection("users").document(uid).collection("userPersonalInfo").document("personal")
-                                            val personalInfo = hashMapOf(
-                                                "bmi" to 0.0,
-                                                "height" to 0.0,
-                                                "weight" to 0.0
-                                            )
-                                            batch.set(personalRef, personalInfo)
+                                            batch.set(personalRef, mapOf("bmi" to 0.0, "height" to 0.0, "weight" to 0.0))
 
-                                            // Commit the atomic batch write
                                             batch.commit().addOnCompleteListener { task ->
                                                 isLoading = false
                                                 if (task.isSuccessful) {
@@ -193,15 +186,12 @@ fun SignUpScreen(onSignUpSuccess: () -> Unit = {}) {
                     Text("Continue")
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            TextButton(onClick = onNavigateToLogin) {
+                Text("Already have an account? Log in")
+            }
         }
     }
 }
 
-
-@Preview(showBackground = true)
-@Composable
-fun SignUpScreenPreview() {
-    SnackSmackTheme {
-        SignUpScreen()
-    }
-}

@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
@@ -23,17 +24,12 @@ class MainActivity : ComponentActivity() {
             SnackSmackTheme {
                 val navController = rememberNavController()
 
-                // Get the current route to determine if the nav bar should be shown
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
                 val screensWithNavBar = listOf("home", "profile", "waterTracking", "calendar")
 
-                val currentUser = FirebaseAuth.getInstance().currentUser
-                val startDestination = if (currentUser != null) "home" else "login"
-
                 Scaffold(
                     bottomBar = {
-                        // Only show the bottom bar on specific screens
                         if (currentRoute in screensWithNavBar) {
                             NavigationButtons(navController = navController)
                         }
@@ -41,7 +37,7 @@ class MainActivity : ComponentActivity() {
                 ) { innerPadding ->
                     NavHost(
                         navController = navController,
-                        startDestination = startDestination,
+                        startDestination = "login", // Start destination is now static
                         modifier = Modifier.padding(innerPadding)
                     ) {
                         composable("home") { HomeScreen() }
@@ -49,26 +45,36 @@ class MainActivity : ComponentActivity() {
                         composable("waterTracking") { WaterTrackingScreen() }
                         composable("calendar") { CalendarScreen() }
                         composable("login") {
-                            LoginScreen(
-                                onLoginSuccess = {
+                            // Check if user is already logged in
+                            val currentUser = FirebaseAuth.getInstance().currentUser
+                            if (currentUser != null) {
+                                // If logged in, navigate to home immediately
+                                LaunchedEffect(Unit) {
                                     navController.navigate("home") {
-                                        popUpTo(navController.graph.startDestinationId) {
-                                            inclusive = true
-                                        }
+                                        popUpTo("login") { inclusive = true }
                                     }
-                                },
-                                onNavigateToSignUp = {
-                                    navController.navigate("SignUpScreen")
                                 }
-                            )
+                            } else {
+                                // If not logged in, show the login screen
+                                LoginScreen(
+                                    onLoginSuccess = {
+                                        navController.navigate("home") {
+                                            popUpTo("login") { inclusive = true }
+                                        }
+                                    },
+                                    onNavigateToSignUp = {
+                                        navController.navigate("SignUpScreen")
+                                    }
+                                )
+                            }
                         }
                         composable("SignUpScreen") {
                             SignUpScreen(
                                 onSignUpSuccess = {
                                     navController.navigate("userInfo") {
-                                        popUpTo("login") { inclusive = true }
+                                        popUpTo("home") { inclusive = true }
                                     }
-                                }
+                                },
                             )
                         }
                         composable("userInfo") { UserInfoScreen() }
