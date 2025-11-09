@@ -18,6 +18,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -41,7 +42,8 @@ private class ProfileScreenEvents(
     private val db: FirebaseFirestore,
     private val coroutineScope: CoroutineScope,
     private val snackbarHostState: SnackbarHostState,
-    private val state: MutableState<ProfileScreenState>
+    private val state: MutableState<ProfileScreenState>,
+    private val navController: NavController
 ) {
     private val lbsToKg = 0.453592
     private val metersToFeet = 3.28084
@@ -108,6 +110,11 @@ private class ProfileScreenEvents(
     fun onLogout() {
         auth.signOut()
         showSnackbar("You have been logged out.")
+        navController.navigate("login") {
+            popUpTo(navController.graph.startDestinationId) {
+                inclusive = true
+            }
+        }
     }
 
     fun onSaveProfile() = coroutineScope.launch {
@@ -219,18 +226,19 @@ private class ProfileScreenEvents(
 }
 
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(navController: NavController) {
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val state = remember { mutableStateOf(ProfileScreenState()) }
 
-    val events = remember(coroutineScope, snackbarHostState) {
+    val events = remember(coroutineScope, snackbarHostState, navController) {
         ProfileScreenEvents(
             auth = FirebaseAuth.getInstance(),
             db = FirebaseFirestore.getInstance(),
             coroutineScope = coroutineScope,
             snackbarHostState = snackbarHostState,
-            state = state
+            state = state,
+            navController = navController
         )
     }
 
@@ -418,6 +426,3 @@ private fun HealthDataSection(
         }
     }
 }
-
-
-

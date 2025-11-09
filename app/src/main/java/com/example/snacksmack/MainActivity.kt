@@ -11,7 +11,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.snacksmack.ui.theme.SnackSmackTheme
-
+import com.google.firebase.auth.FirebaseAuth
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,18 +20,34 @@ class MainActivity : ComponentActivity() {
         setContent {
             SnackSmackTheme {
                 val navController = rememberNavController()
+                val currentUser = FirebaseAuth.getInstance().currentUser
+                val startDestination = if (currentUser != null) "home" else "login"
                 Scaffold(
                     bottomBar = { NavigationButtons(navController = navController) }
                 ) { innerPadding ->
                     NavHost(
                         navController = navController,
-                        startDestination = "home",
+                        startDestination = startDestination,
                         modifier = Modifier.padding(innerPadding)
                     ) {
                         composable("home") { HomeScreen() }
-                        composable("profile") { ProfileScreen() }
+                        composable("profile") { ProfileScreen(navController) }
                         composable("waterTracking") { waterTrackingScreen() }
                         composable("calendar") { CalendarScreen() }
+                        composable("login") {
+                            LoginScreen(
+                                onLoginSuccess = {
+                                    navController.navigate("home") {
+                                        popUpTo(navController.graph.startDestinationId) {
+                                            inclusive = true
+                                        }
+                                    }
+                                },
+                                onNavigateToSignUp = {
+                                    navController.navigate("signUp")
+                                }
+                            )
+                        }
                     }
                 }
             }
