@@ -6,9 +6,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.snacksmack.ui.theme.SnackSmackTheme
 import com.google.firebase.auth.FirebaseAuth
@@ -20,10 +22,22 @@ class MainActivity : ComponentActivity() {
         setContent {
             SnackSmackTheme {
                 val navController = rememberNavController()
+
+                // Get the current route to determine if the nav bar should be shown
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = navBackStackEntry?.destination?.route
+                val screensWithNavBar = listOf("home", "profile", "waterTracking", "calendar")
+
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 val startDestination = if (currentUser != null) "home" else "login"
+
                 Scaffold(
-                    bottomBar = { NavigationButtons(navController = navController) }
+                    bottomBar = {
+                        // Only show the bottom bar on specific screens
+                        if (currentRoute in screensWithNavBar) {
+                            NavigationButtons(navController = navController)
+                        }
+                    }
                 ) { innerPadding ->
                     NavHost(
                         navController = navController,
@@ -44,10 +58,20 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onNavigateToSignUp = {
-                                    navController.navigate("signUp")
+                                    navController.navigate("SignUpScreen")
                                 }
                             )
                         }
+                        composable("SignUpScreen") {
+                            SignUpScreen(
+                                onSignUpSuccess = {
+                                    navController.navigate("userInfo") {
+                                        popUpTo("login") { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
+                        composable("userInfo") { UserInfoScreen() }
                     }
                 }
             }
