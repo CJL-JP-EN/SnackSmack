@@ -72,12 +72,23 @@ class MainActivity : ComponentActivity() {
                             SignUpScreen(
                                 onSignUpSuccess = {
                                     navController.navigate("userInfo") {
-                                        popUpTo("home") { inclusive = true }
+                                        popUpTo("SignUpScreen") { inclusive = true }
                                     }
                                 },
+                                onNavigateToLogin = {
+                                     navController.popBackStack() 
+                                }
                             )
                         }
-                        composable("userInfo") { UserInfoScreen() }
+                        composable("userInfo") { 
+                            UserInfoScreen(
+                                onSaveSuccess = {
+                                    navController.navigate("home") {
+                                        popUpTo("userInfo") { inclusive = true }
+                                    }
+                                }
+                            ) 
+                        }
                     }
                 }
             }

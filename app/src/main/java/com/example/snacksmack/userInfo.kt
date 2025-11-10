@@ -1,7 +1,12 @@
 package com.example.snacksmack
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MonitorWeight
+import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,22 +18,32 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 @Composable
-fun UserInfoScreen() {
-    var height by remember { mutableStateOf("") }
-    var weight by remember { mutableStateOf("") }
+fun UserInfoScreen(onSaveSuccess: () -> Unit) {
+    var feet by remember { mutableStateOf("") }
+    var inches by remember { mutableStateOf("") }
+    var weightLbs by remember { mutableStateOf("") }
     var bmi by remember { mutableStateOf(0.0) }
     var isLoading by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
-    // Automatically calculate BMI
-    LaunchedEffect(height, weight) {
-        val h = height.toDoubleOrNull() ?: 0.0
-        val w = weight.toDoubleOrNull() ?: 0.0
-        if (h > 0 && w > 0) {
-            // Standard BMI formula: BMI = kg / m^2. Assuming weight is in kg and height is in meters.
-            bmi = (w / (h * h)).let { Math.round(it * 10.0) / 10.0 } 
+    val lbsToKg = 0.453592
+    val ftToMeters = 0.3048
+    val inToMeters = 0.0254
+
+    // Automatically calculate BMI as the user types
+    LaunchedEffect(feet, inches, weightLbs) {
+        val feetVal = feet.toDoubleOrNull() ?: 0.0
+        val inchesVal = inches.toDoubleOrNull() ?: 0.0
+        val weightValLbs = weightLbs.toDoubleOrNull() ?: 0.0
+
+        if (weightValLbs > 0 && (feetVal > 0 || inchesVal > 0)) {
+            val heightInMeters = (feetVal * ftToMeters) + (inchesVal * inToMeters)
+            val weightInKg = weightValLbs * lbsToKg
+            if (heightInMeters > 0) {
+                bmi = (weightInKg / (heightInMeters * heightInMeters)).let { Math.round(it * 10.0) / 10.0 }
+            }
         }
     }
 
@@ -39,53 +54,65 @@ fun UserInfoScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(it)
-                .padding(32.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(32.dp)
+                .verticalScroll(rememberScrollState()), // Make it scrollable
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Text("Enter Your Information", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(32.dp))
 
-            OutlinedTextField(
-                value = height,
-                onValueChange = { height = it },
-                label = { Text("Height (in meters)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
+            // Height Input Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = feet,
+                    onValueChange = { feet = it },
+                    label = { Text("Height (ft)") },
+                    leadingIcon = { Icon(Icons.Default.Straighten, "Height") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = inches,
+                    onValueChange = { inches = it },
+                    label = { Text("in") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+            }
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Weight Input
             OutlinedTextField(
-                value = weight,
-                onValueChange = { weight = it },
-                label = { Text("Weight (in kg)") },
+                value = weightLbs,
+                onValueChange = { weightLbs = it },
+                label = { Text("Weight (lbs)") },
+                leadingIcon = { Icon(Icons.Default.MonitorWeight, "Weight") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(32.dp))
-            
-            Text("Hardness Level")
+
+            Text("Harshness Level")
             Slider(
                 value = 0.5f, // A fixed value
-                onValueChange = { 
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar("Nope, you can't change this")
-                    }
-                },
+                onValueChange = { coroutineScope.launch { snackbarHostState.showSnackbar("Nope, you can't change this") } },
                 modifier = Modifier.fillMaxWidth()
             )
-
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
                 onClick = {
-                    val h = height.toDoubleOrNull()
-                    val w = weight.toDoubleOrNull()
+                    val feetVal = feet.toDoubleOrNull()
+                    val inchesVal = inches.toDoubleOrNull()
+                    val weightValLbs = weightLbs.toDoubleOrNull()
 
-                    if (h == null || w == null) {
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("Please enter valid height and weight.")
-                        }
+                    if (feetVal == null || inchesVal == null || weightValLbs == null) {
+                        coroutineScope.launch { snackbarHostState.showSnackbar("Please enter valid numbers for all fields.") }
                         return@Button
                     }
 
@@ -96,22 +123,24 @@ fun UserInfoScreen() {
                         val personalInfoRef = db.collection("users").document(user.uid)
                             .collection("userPersonalInfo").document("personal")
 
+                        // Format height as a string like "6'2\""
+                        val heightString = "${feetVal.toInt()}'${inchesVal.toInt()}\""
+
+                        // Save the formatted height string and other data
                         val updates = mapOf(
-                            "height" to h,
-                            "weight" to w,
+                            "height" to heightString,
+                            "weight_lbs" to weightValLbs,
                             "bmi" to bmi
                         )
 
                         personalInfoRef.update(updates)
                             .addOnSuccessListener {
                                 isLoading = false
-                                // You can add navigation to the home screen here if desired
+                                onSaveSuccess() // Navigate on success
                             }
                             .addOnFailureListener { e ->
                                 isLoading = false
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar("Error saving data: ${e.message}")
-                                }
+                                coroutineScope.launch { snackbarHostState.showSnackbar("Error saving data: ${e.message}") }
                             }
                     }
                 },
@@ -121,7 +150,7 @@ fun UserInfoScreen() {
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp))
                 } else {
-                    Text("Save")
+                    Text("Confirm and Save")
                 }
             }
         }
