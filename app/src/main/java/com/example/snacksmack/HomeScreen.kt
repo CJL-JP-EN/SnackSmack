@@ -21,20 +21,32 @@ import com.google.firebase.firestore.FirebaseFirestore
 fun HomeScreen(){
     val context = LocalContext.current
     var useHarsh by remember { mutableStateOf(true) }
-    var bmiValue by remember { mutableStateOf<Float?>(null) } // Add state for BMI
+    var bmiValue by remember { mutableStateOf<Float?>(null) }
+    var username by remember { mutableStateOf("") } // State for username
 
     // Create notification channel one (new API)
     LaunchedEffect(Unit) { NotificationHelper.createChannel(context) }
 
-    // Current user (same as your code)
+    // Current user
     val currentUser = FirebaseAuth.getInstance().currentUser
     val uid = currentUser?.uid
 
-    // Fetch BMI from Firebase
+    // Fetch user data from Firebase
     if (uid != null) {
         LaunchedEffect(uid) {
             val db = FirebaseFirestore.getInstance()
-            db.collection("users").document(uid).get()
+            val userDocRef = db.collection("users").document(uid)
+
+            // Fetch Account Info (username)
+            userDocRef.collection("userAccountInfo").document("account").get()
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        username = document.getString("username") ?: ""
+                    }
+                }
+
+            // Fetch Personal Info (BMI)
+            userDocRef.collection("userPersonalInfo").document("personal").get()
                 .addOnSuccessListener { document ->
                     if (document != null && document.exists()) {
                         bmiValue = document.getDouble("bmi")?.toFloat()
@@ -76,9 +88,9 @@ fun HomeScreen(){
         )
         Spacer(Modifier.height(10.dp))
 
-        if (uid != null) {
+        if (username.isNotBlank()) {
             Text(
-                text = uid,
+                text = username, // Display username instead of UID
                 fontSize = 22.sp,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
@@ -90,5 +102,5 @@ fun HomeScreen(){
         Spacer(Modifier.height(10.dp))
 
         bmiLine(bmiValue = bmiValue)
-        }
+    }
 }
