@@ -55,7 +55,7 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit, onNavigateBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Account Details") },
+                title = { Text("User Details") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

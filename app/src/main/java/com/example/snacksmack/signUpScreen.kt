@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
@@ -25,10 +26,12 @@ import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignUpScreen(
     onSignUpSuccess: () -> Unit = {},
-    onNavigateToLogin: () -> Unit = {}
+    onNavigateToLogin: () -> Unit = {},
+    onNavigateBack: () -> Unit = {}
 ) {
     var email by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -42,6 +45,16 @@ fun SignUpScreen(
     val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Sign Up") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) {
         Column(
@@ -52,8 +65,6 @@ fun SignUpScreen(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(40.dp))
-
             Image(
                 painter = painterResource(id = R.drawable.snacksmack_logo_icon),
                 contentDescription = "App Logo",
@@ -147,7 +158,7 @@ fun SignUpScreen(
                                             batch.set(accountRef, mapOf("email" to email, "username" to username))
 
                                             val personalRef = db.collection("users").document(uid).collection("userPersonalInfo").document("personal")
-                                            batch.set(personalRef, mapOf("bmi" to 0.0, "height" to 0.0, "weight" to 0.0))
+                                            batch.set(personalRef, mapOf("bmi" to 0.0, "height" to "0'0\"", "weight_lbs" to 0.0))
 
                                             batch.commit().addOnCompleteListener { task ->
                                                 isLoading = false
@@ -194,4 +205,3 @@ fun SignUpScreen(
         }
     }
 }
-

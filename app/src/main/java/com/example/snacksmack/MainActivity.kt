@@ -45,26 +45,15 @@ class MainActivity : ComponentActivity() {
                         composable("waterTracking") { WaterTrackingScreen() }
                         composable("calendar") { CalendarScreen() }
                         composable("login") {
-                            // Check if user is already logged in
                             val currentUser = FirebaseAuth.getInstance().currentUser
                             if (currentUser != null) {
-                                // If logged in, navigate to home immediately
                                 LaunchedEffect(Unit) {
-                                    navController.navigate("home") {
-                                        popUpTo("login") { inclusive = true }
-                                    }
+                                    navController.navigate("home") { popUpTo("login") { inclusive = true } }
                                 }
                             } else {
-                                // If not logged in, show the login screen
                                 LoginScreen(
-                                    onLoginSuccess = {
-                                        navController.navigate("home") {
-                                            popUpTo("login") { inclusive = true }
-                                        }
-                                    },
-                                    onNavigateToSignUp = {
-                                        navController.navigate("SignUpScreen")
-                                    }
+                                    onLoginSuccess = { navController.navigate("home") { popUpTo("login") { inclusive = true } } },
+                                    onNavigateToSignUp = { navController.navigate("SignUpScreen") }
                                 )
                             }
                         }
@@ -77,16 +66,18 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToLogin = {
                                      navController.popBackStack() 
-                                }
+                                },
+                                onNavigateBack = { navController.popBackStack() }
                             )
                         }
                         composable("userInfo") { 
                             UserInfoScreen(
                                 onSaveSuccess = {
                                     navController.navigate("home") {
-                                        popUpTo("userInfo") { inclusive = true }
+                                        popUpTo("login") { inclusive = true }
                                     }
-                                }
+                                },
+                                onNavigateBack = { navController.popBackStack() }
                             ) 
                         }
                     }
