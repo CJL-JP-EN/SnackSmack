@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
                 ) { innerPadding ->
                     NavHost(
                         navController = navController,
-                        startDestination = "login", // Start destination is now static
+                        startDestination = "login",
                         modifier = Modifier.padding(innerPadding)
                     ) {
                         composable("home") { HomeScreen() }

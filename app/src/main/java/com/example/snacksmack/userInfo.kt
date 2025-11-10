@@ -11,8 +11,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.snacksmack.ui.theme.SnackSmackTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -99,9 +102,14 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit) {
 
             Text("Harshness Level")
             Slider(
-                value = 0.5f, // A fixed value
+                value = 0.5f, 
                 onValueChange = { coroutineScope.launch { snackbarHostState.showSnackbar("Nope, you can't change this") } },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = SliderDefaults.colors(
+                    thumbColor = Color.Black,
+                    activeTrackColor = Color.Black,
+                    inactiveTrackColor = Color.Gray
+                )
             )
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -154,5 +162,13 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun UserInfoScreenPreview() {
+    SnackSmackTheme {
+        UserInfoScreen(onSaveSuccess = {})
     }
 }
