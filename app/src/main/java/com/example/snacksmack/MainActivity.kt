@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
 
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
-                val screensWithNavBar = listOf("home", "profile", "waterTracking", "calendar")
+                val screensWithNavBar = listOf("home", "profile", "waterTracking", "calendar","Snack")
 
                 Scaffold(
                     bottomBar = {
@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
                         composable("profile") { ProfileScreen(navController) }
                         composable("waterTracking") { WaterTrackingScreen() }
                         composable("calendar") { CalendarScreen() }
+                        composable("Snack") { SnackScreen() }
                         composable("login") {
                             val currentUser = FirebaseAuth.getInstance().currentUser
                             if (currentUser != null) {

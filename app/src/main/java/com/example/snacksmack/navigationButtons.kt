@@ -20,8 +20,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 fun NavigationButtons(navController: NavController) {
     // The items list now uses your custom PNG icons from the drawable folder.
     val items = listOf(
-        NavigationItem("Home", "home", R.drawable.home_icon),
+        NavigationItem("Snack", "SnackScreen", R.drawable.cookie_icon),
         NavigationItem("Water", "waterTracking", R.drawable.glass_icon),
+        NavigationItem("Home", "home", R.drawable.home_icon),
         NavigationItem("Calendar", "calendar", R.drawable.calendar_icon),
         NavigationItem("Profile", "profile", R.drawable.user_icon)
     )
