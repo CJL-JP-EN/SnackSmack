@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material3.*
@@ -20,8 +21,9 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UserInfoScreen(onSaveSuccess: () -> Unit) {
+fun UserInfoScreen(onSaveSuccess: () -> Unit, onNavigateBack: () -> Unit) {
     var feet by remember { mutableStateOf("") }
     var inches by remember { mutableStateOf("") }
     var weightLbs by remember { mutableStateOf("") }
@@ -51,6 +53,16 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit) {
     }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Account Details") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) {
         Column(
@@ -107,7 +119,7 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 colors = SliderDefaults.colors(
                     thumbColor = Color.Black,
-                    activeTrackColor = Color.Black,
+                    activeTrackColor = MaterialTheme.colorScheme.primary,
                     inactiveTrackColor = Color.Gray
                 )
             )
@@ -169,6 +181,6 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit) {
 @Composable
 fun UserInfoScreenPreview() {
     SnackSmackTheme {
-        UserInfoScreen(onSaveSuccess = {})
+        UserInfoScreen(onSaveSuccess = {}, onNavigateBack = {})
     }
 }
