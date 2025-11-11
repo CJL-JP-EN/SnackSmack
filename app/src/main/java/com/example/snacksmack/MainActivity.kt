@@ -22,6 +22,7 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 val startDestination = if (currentUser != null) "home" else "login"
+
                 Scaffold(
                     bottomBar = { NavigationButtons(navController = navController) }
                 ) { innerPadding ->
@@ -30,22 +31,26 @@ class MainActivity : ComponentActivity() {
                         startDestination = startDestination,
                         modifier = Modifier.padding(innerPadding)
                     ) {
-                        composable("home") { HomeScreen() }
+                        composable("home") {
+                            HomeScreen(
+                                onOpenSnackWheel = { navController.navigate("snacks") }
+                            )
+                        }
+                        // Snack wheel route — ensure SnackTrackingScreen() exists in your project
+                        composable("snacks") { SnackTrackingScreen() }
+
                         composable("profile") { ProfileScreen(navController) }
-                        composable("waterTracking") { waterTrackingScreen() }
+                        composable("waterTracking") { WaterTrackingScreen() }
                         composable("calendar") { CalendarScreen() }
+
                         composable("login") {
                             LoginScreen(
                                 onLoginSuccess = {
                                     navController.navigate("home") {
-                                        popUpTo(navController.graph.startDestinationId) {
-                                            inclusive = true
-                                        }
+                                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
                                     }
                                 },
-                                onNavigateToSignUp = {
-                                    navController.navigate("signUp")
-                                }
+                                onNavigateToSignUp = { navController.navigate("signUp") }
                             )
                         }
                     }
