@@ -18,26 +18,28 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
-fun HomeScreen(){
+fun HomeScreen(
+    onOpenSnackWheel: () -> Unit
+) {
     val context = LocalContext.current
     var useHarsh by remember { mutableStateOf(true) }
     var bmiValue by remember { mutableStateOf<Float?>(null) }
-    var username by remember { mutableStateOf("") } // State for username
+    var username by remember { mutableStateOf("") }
 
-    // Create notification channel one (new API)
+    // Create notification channel
     LaunchedEffect(Unit) { NotificationHelper.createChannel(context) }
 
     // Current user
     val currentUser = FirebaseAuth.getInstance().currentUser
     val uid = currentUser?.uid
 
-    // Fetch user data from Firebase
+    // Fetch user data
     if (uid != null) {
         LaunchedEffect(uid) {
             val db = FirebaseFirestore.getInstance()
             val userDocRef = db.collection("users").document(uid)
 
-            // Fetch Account Info (username)
+            // Account info (username)
             userDocRef.collection("userAccountInfo").document("account").get()
                 .addOnSuccessListener { document ->
                     if (document != null && document.exists()) {
@@ -45,7 +47,7 @@ fun HomeScreen(){
                     }
                 }
 
-            // Fetch Personal Info (BMI)
+            // Personal info (BMI)
             userDocRef.collection("userPersonalInfo").document("personal").get()
                 .addOnSuccessListener { document ->
                     if (document != null && document.exists()) {
@@ -55,14 +57,10 @@ fun HomeScreen(){
         }
     }
 
-
-    // Android 13+ permission request
+    // Android 13+ POST_NOTIFICATIONS (kept since you had it)
     val requestPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) {
-                // New API call (persistent=false gives a normal banner)
-                NotificationHelper.showRandomSnackAlert(context, useHarsh)
-            }
+            if (granted) NotificationHelper.showRandomSnackAlert(context, useHarsh)
         }
 
     Column(
@@ -82,25 +80,27 @@ fun HomeScreen(){
             text = "Welcome Back",
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .align(Alignment.Start)
-                .padding(start = 16.dp)
+            modifier = Modifier.align(Alignment.Start).padding(start = 16.dp)
         )
         Spacer(Modifier.height(10.dp))
 
         if (username.isNotBlank()) {
             Text(
-                text = username, // Display username instead of UID
+                text = username,
                 fontSize = 22.sp,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(start = 16.dp)
+                modifier = Modifier.align(Alignment.CenterHorizontally)
             )
         }
 
         Spacer(Modifier.height(10.dp))
-
         bmiLine(bmiValue = bmiValue)
+
+        // Open Snack Wheel button
+        Spacer(Modifier.height(24.dp))
+        Button(
+            onClick = onOpenSnackWheel,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Open Snack Wheel 🍩") }
     }
 }

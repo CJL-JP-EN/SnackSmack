@@ -59,9 +59,6 @@ object NotificationHelper {
         createChannel(context) // ensure channel exists
 
         val (title, text) = pickContent(type, useHarsh)
-
-        // Optional: tap intent to open app (MainActivity). If you don't have it or don't want it,
-        // you can remove the contentIntent bits below.
         val contentIntent = context.packageManager?.getLaunchIntentForPackage(context.packageName)
         val contentPI = PendingIntent.getActivity(
             context,
@@ -71,7 +68,7 @@ object NotificationHelper {
                     (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
         )
 
-        // Optional: “Dismiss” action via broadcast (if you implemented DismissReceiver).
+
         val dismissIntent = Intent(context, DismissReceiver::class.java)
         val dismissPI = PendingIntent.getBroadcast(
             context,
@@ -110,6 +107,41 @@ object NotificationHelper {
     fun showRandomSnackAlert(context: Context, useHarsh: Boolean) {
         show(context, ReminderType.SNACK, useHarsh, persistent = false)
     }
+    fun showSnackSummary(
+        context: android.content.Context,
+        protein: Int,
+        salty: Int,
+        sweet: Int,
+        healthy: Int
+    ) {
+        // Ensure channel exists (reuse whatever your app uses, adjust IDs if needed)
+        createChannel(context)
+
+        val total = protein + salty + sweet + healthy
+        val healthierTip = if (healthy >= protein + salty + sweet) {
+            "Great job choosing healthier options! 🥗"
+        } else {
+            "Try swapping a snack for a healthier bite next time. 💡"
+        }
+
+        val title = "Snack Summary: $total today"
+        val text = "Protein: $protein • Salty: $salty • Sweet: $sweet • Healthy: $healthy"
+
+        val builder = androidx.core.app.NotificationCompat.Builder(context, CHANNEL_ID) // use your existing CHANNEL_ID
+            .setSmallIcon(android.R.drawable.ic_dialog_info) // simple default icon
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(
+                androidx.core.app.NotificationCompat.BigTextStyle()
+                    .bigText("$text\n$healthierTip")
+            )
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+
+        val mgr = androidx.core.app.NotificationManagerCompat.from(context)
+        mgr.notify(9002, builder.build())
+    }
+
 
     // ---- helpers ----
 
@@ -135,9 +167,6 @@ object NotificationHelper {
             ReminderType.SNACK -> 1000
             ReminderType.HYDRATION -> 2000 // typo? ensure matches enum; corrected below
         }
-        // NOTE: fix enum spelling below; using proper ordinal-safe approach instead:
-        // return type.ordinal * 10_000 + (System.currentTimeMillis() % 10_000).toInt()
-        // But many folks like stable ids per type. We'll keep base + random:
         return base + Random.nextInt(500)
     }
 }

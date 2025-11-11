@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
 
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
-                val screensWithNavBar = listOf("home", "profile", "waterTracking", "calendar")
+                val screensWithNavBar = listOf("home", "profile", "waterTracking", "calendar", "Snack")
 
                 Scaffold(
                     bottomBar = {
@@ -40,23 +40,38 @@ class MainActivity : ComponentActivity() {
                         startDestination = "login",
                         modifier = Modifier.padding(innerPadding)
                     ) {
-                        composable("home") { HomeScreen() }
+                        composable("home") {
+                            HomeScreen(
+                                onOpenSnackWheel = { navController.navigate("Snack") }
+                            )
+                        }
+                        // Snack Wheel destination
+                        composable("Snack") { SnackTrackingScreen() }
+
                         composable("profile") { ProfileScreen(navController) }
                         composable("waterTracking") { WaterTrackingScreen() }
                         composable("calendar") { CalendarScreen() }
+
                         composable("login") {
                             val currentUser = FirebaseAuth.getInstance().currentUser
                             if (currentUser != null) {
                                 LaunchedEffect(Unit) {
-                                    navController.navigate("home") { popUpTo("login") { inclusive = true } }
+                                    navController.navigate("home") {
+                                        popUpTo("login") { inclusive = true }
+                                    }
                                 }
                             } else {
                                 LoginScreen(
-                                    onLoginSuccess = { navController.navigate("home") { popUpTo("login") { inclusive = true } } },
+                                    onLoginSuccess = {
+                                        navController.navigate("home") {
+                                            popUpTo("login") { inclusive = true }
+                                        }
+                                    },
                                     onNavigateToSignUp = { navController.navigate("SignUpScreen") }
                                 )
                             }
                         }
+
                         composable("SignUpScreen") {
                             SignUpScreen(
                                 onSignUpSuccess = {
@@ -64,13 +79,12 @@ class MainActivity : ComponentActivity() {
                                         popUpTo("SignUpScreen") { inclusive = true }
                                     }
                                 },
-                                onNavigateToLogin = {
-                                     navController.popBackStack() 
-                                },
+                                onNavigateToLogin = { navController.popBackStack() },
                                 onNavigateBack = { navController.popBackStack() }
                             )
                         }
-                        composable("userInfo") { 
+
+                        composable("userInfo") {
                             UserInfoScreen(
                                 onSaveSuccess = {
                                     navController.navigate("home") {
@@ -78,7 +92,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onNavigateBack = { navController.popBackStack() }
-                            ) 
+                            )
                         }
                     }
                 }
