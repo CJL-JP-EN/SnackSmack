@@ -18,77 +18,58 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
-fun HomeScreen(){
+fun HomeScreen(
+    onOpenSnackWheel: () -> Unit
+) {
     val context = LocalContext.current
-    var useHarsh by remember { mutableStateOf(true) }
-    var bmiValue by remember { mutableStateOf<Float?>(null) } // Add state for BMI
+    var bmiValue by remember { mutableStateOf<Float?>(null) }
 
-    // Create notification channel one (new API)
-    LaunchedEffect(Unit) { NotificationHelper.createChannel(context) }
+    LaunchedEffect(Unit) { com.example.snacksmack.notifications.NotificationHelper.createChannel(context) }
 
-    // Current user (same as your code)
-    val currentUser = FirebaseAuth.getInstance().currentUser
-    val uid = currentUser?.uid
-
-    // Fetch BMI from Firebase
+    val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
     if (uid != null) {
         LaunchedEffect(uid) {
-            val db = FirebaseFirestore.getInstance()
-            db.collection("users").document(uid).get()
-                .addOnSuccessListener { document ->
-                    if (document != null && document.exists()) {
-                        bmiValue = document.getDouble("bmi")?.toFloat()
-                    }
-                }
+            com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                .collection("users").document(uid).get()
+                .addOnSuccessListener { doc -> bmiValue = doc.getDouble("bmi")?.toFloat() }
         }
     }
 
-
-    // Android 13+ permission request
-    val requestPermissionLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) {
-                // New API call (persistent=false gives a normal banner)
-                NotificationHelper.showRandomSnackAlert(context, useHarsh)
-            }
-        }
-
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(5.dp))
-
         Image(
             painter = painterResource(id = R.drawable.snacksmack_logo_icon),
             contentDescription = "App Logo",
             modifier = Modifier.height(155.dp)
         )
-
         Text(
             text = "Welcome Back",
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .align(Alignment.Start)
-                .padding(start = 16.dp)
+            modifier = Modifier.align(Alignment.Start).padding(start = 16.dp)
         )
         Spacer(Modifier.height(10.dp))
-
-        if (uid != null) {
+        uid?.let {
             Text(
-                text = uid,
+                text = it,
                 fontSize = 22.sp,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(start = 16.dp)
+                modifier = Modifier.align(Alignment.CenterHorizontally)
             )
         }
-
-        Spacer(Modifier.height(10.dp))
-
+        Spacer(Modifier.height(16.dp))
         bmiLine(bmiValue = bmiValue)
+
+        Spacer(Modifier.height(24.dp))
+        Button(
+            onClick = onOpenSnackWheel,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Open Snack Wheel 🍩")
         }
+    }
 }
+
