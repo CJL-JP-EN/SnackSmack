@@ -16,13 +16,15 @@ import androidx.compose.ui.unit.sp
 import com.example.snacksmack.notifications.NotificationHelper
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import androidx.navigation.NavController
 
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(
+    onOpenSnackWheel: () -> Unit
+) {
     val context = LocalContext.current
     var useHarsh by remember { mutableStateOf(true) }
     var bmiValue by remember { mutableStateOf<Float?>(null) }
+    var username by remember { mutableStateOf("") }
 
     // Create notification channel
     LaunchedEffect(Unit) { NotificationHelper.createChannel(context) }
@@ -31,11 +33,22 @@ fun HomeScreen(navController: NavController) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     val uid = currentUser?.uid
 
-    // Fetch BMI from Firestore
+    // Fetch user data
     if (uid != null) {
         LaunchedEffect(uid) {
             val db = FirebaseFirestore.getInstance()
-            db.collection("users").document(uid).get()
+            val userDocRef = db.collection("users").document(uid)
+
+            // Account info (username)
+            userDocRef.collection("userAccountInfo").document("account").get()
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        username = document.getString("username") ?: ""
+                    }
+                }
+
+            // Personal info (BMI)
+            userDocRef.collection("userPersonalInfo").document("personal").get()
                 .addOnSuccessListener { document ->
                     if (document != null && document.exists()) {
                         bmiValue = document.getDouble("bmi")?.toFloat()
@@ -44,18 +57,14 @@ fun HomeScreen(navController: NavController) {
         }
     }
 
-    // Android 13+ notification permission
+    // Android 13+ POST_NOTIFICATIONS (kept since you had it)
     val requestPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) {
-                NotificationHelper.showRandomSnackAlert(context, useHarsh)
-            }
+            if (granted) NotificationHelper.showRandomSnackAlert(context, useHarsh)
         }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -71,34 +80,27 @@ fun HomeScreen(navController: NavController) {
             text = "Welcome Back",
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .align(Alignment.Start)
-                .padding(start = 16.dp)
+            modifier = Modifier.align(Alignment.Start).padding(start = 16.dp)
         )
-
         Spacer(Modifier.height(10.dp))
 
-        if (uid != null) {
+        if (username.isNotBlank()) {
             Text(
-                text = uid,
+                text = username,
                 fontSize = 22.sp,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(start = 16.dp)
+                modifier = Modifier.align(Alignment.CenterHorizontally)
             )
         }
 
         Spacer(Modifier.height(10.dp))
         bmiLine(bmiValue = bmiValue)
 
-        // 🔹 Snack Wheel Button
+        // Open Snack Wheel button
         Spacer(Modifier.height(24.dp))
         Button(
-            onClick = { navController.navigate("snacks") },
+            onClick = onOpenSnackWheel,
             modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Open Snack Wheel 🍩")
-        }
+        ) { Text("Open Snack Wheel 🍩") }
     }
 }
