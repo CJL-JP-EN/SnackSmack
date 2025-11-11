@@ -30,9 +30,10 @@ class MainActivity : ComponentActivity() {
                         startDestination = startDestination,
                         modifier = Modifier.padding(innerPadding)
                     ) {
-                        composable("home") { HomeScreen() }
+                        composable("home") { HomeScreen(navController) }
+                        composable("snacks") { SnackTrackingScreen() }
                         composable("profile") { ProfileScreen(navController) }
-                        composable("waterTracking") { waterTrackingScreen() }
+                        composable("waterTracking") { WaterTrackingScreen() }
                         composable("calendar") { CalendarScreen() }
                         composable("login") {
                             LoginScreen(

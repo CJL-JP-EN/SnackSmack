@@ -16,21 +16,22 @@ import androidx.compose.ui.unit.sp
 import com.example.snacksmack.notifications.NotificationHelper
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import androidx.navigation.NavController
 
 @Composable
-fun HomeScreen(){
+fun HomeScreen(navController: NavController) {
     val context = LocalContext.current
     var useHarsh by remember { mutableStateOf(true) }
-    var bmiValue by remember { mutableStateOf<Float?>(null) } // Add state for BMI
+    var bmiValue by remember { mutableStateOf<Float?>(null) }
 
-    // Create notification channel one (new API)
+    // Create notification channel
     LaunchedEffect(Unit) { NotificationHelper.createChannel(context) }
 
-    // Current user (same as your code)
+    // Current user
     val currentUser = FirebaseAuth.getInstance().currentUser
     val uid = currentUser?.uid
 
-    // Fetch BMI from Firebase
+    // Fetch BMI from Firestore
     if (uid != null) {
         LaunchedEffect(uid) {
             val db = FirebaseFirestore.getInstance()
@@ -43,18 +44,18 @@ fun HomeScreen(){
         }
     }
 
-
-    // Android 13+ permission request
+    // Android 13+ notification permission
     val requestPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                // New API call (persistent=false gives a normal banner)
                 NotificationHelper.showRandomSnackAlert(context, useHarsh)
             }
         }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -74,6 +75,7 @@ fun HomeScreen(){
                 .align(Alignment.Start)
                 .padding(start = 16.dp)
         )
+
         Spacer(Modifier.height(10.dp))
 
         if (uid != null) {
@@ -88,7 +90,15 @@ fun HomeScreen(){
         }
 
         Spacer(Modifier.height(10.dp))
-
         bmiLine(bmiValue = bmiValue)
+
+        // 🔹 Snack Wheel Button
+        Spacer(Modifier.height(24.dp))
+        Button(
+            onClick = { navController.navigate("snacks") },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Open Snack Wheel 🍩")
         }
+    }
 }
