@@ -9,10 +9,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.snacksmack.ui.theme.SnackSmackTheme
 import com.google.firebase.auth.FirebaseAuth
 
@@ -23,6 +26,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             SnackSmackTheme {
                 val navController = rememberNavController()
+                val waterViewModel: WaterViewModel = viewModel()
 
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
@@ -30,7 +34,7 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     bottomBar = {
-                        if (currentRoute in screensWithNavBar) {
+                        if (currentRoute?.startsWith("calendar") == true || currentRoute in screensWithNavBar) {
                             NavigationButtons(navController = navController)
                         }
                     }
@@ -42,15 +46,22 @@ class MainActivity : ComponentActivity() {
                     ) {
                         composable("home") {
                             HomeScreen(
-                                onOpenSnackWheel = { navController.navigate("Snack") }
+                                onOpenCalendar = { navController.navigate("calendar?showCreate=true") },
+                                waterViewModel = waterViewModel
                             )
                         }
-                        // Snack Wheel destination
                         composable("Snack") { SnackTrackingScreen() }
-
                         composable("profile") { ProfileScreen(navController) }
-                        composable("waterTracking") { WaterTrackingScreen() }
-                        composable("calendar") { CalendarScreen() }
+                        composable("waterTracking") { WaterTrackingScreen(waterViewModel) }
+                        composable(
+                            route = "calendar?showCreate={showCreate}",
+                            arguments = listOf(navArgument("showCreate") {
+                                type = NavType.BoolType
+                                defaultValue = false
+                            })
+                        ) {
+                            CalendarScreen(showCreateEventDialog = it.arguments?.getBoolean("showCreate") ?: false)
+                        }
 
                         composable("login") {
                             val currentUser = FirebaseAuth.getInstance().currentUser

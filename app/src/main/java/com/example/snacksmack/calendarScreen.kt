@@ -58,13 +58,16 @@ private val timeFmt by lazy { SimpleDateFormat("hh:mm a", Locale.US) }
 
 // Compose screen
 @Composable
-fun CalendarScreen(modifier: Modifier = Modifier) {
+fun CalendarScreen(
+    modifier: Modifier = Modifier,
+    showCreateEventDialog: Boolean = false
+) {
     val context = LocalContext.current
     val today = remember { dateFmt.format(Calendar.getInstance().time) }
 
     var selectedDate by remember { mutableStateOf(today) }
     var events by remember { mutableStateOf(loadEvents(context)) }
-    var showCreateDialog by remember { mutableStateOf(false) }
+    var showCreateDialog by remember { mutableStateOf(showCreateEventDialog) }
     var editEvent by remember { mutableStateOf<Event?>(null) }
 
     // One-time: create channel + schedule default daily reminders (snack + hydration)
