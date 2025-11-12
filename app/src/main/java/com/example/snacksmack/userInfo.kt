@@ -234,16 +234,18 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit, onNavigateBack: () -> Unit) {
                             .collection("userPersonalInfo").document("personal")
 
                         val totalHeightInInches = (feetVal * 12) + inchesVal
-                        val dobCalendar = Calendar.getInstance().apply {
-                            set(yearVal, monthVal - 1, dayVal)
-                        }
+                        val dob = mapOf(
+                            "day" to dayVal,
+                            "month" to monthVal,
+                            "year" to yearVal
+                        )
 
                         // Save the formatted height string and other data
                         val updates = mapOf(
                             "height" to totalHeightInInches,
                             "weight_lbs" to weightValLbs,
                             "bmi" to bmi,
-                            "dob" to dobCalendar.time,
+                            "dob" to dob,
                             "age" to age,
                             "sex" to sex
                         )
