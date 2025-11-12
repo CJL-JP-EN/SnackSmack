@@ -14,12 +14,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.snacksmack.ui.theme.SnackSmackTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
+import java.util.Calendar
+import kotlin.math.round
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,7 +27,12 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit, onNavigateBack: () -> Unit) {
     var feet by remember { mutableStateOf("") }
     var inches by remember { mutableStateOf("") }
     var weightLbs by remember { mutableStateOf("") }
-    var bmi by remember { mutableStateOf(0.0) }
+    var day by remember { mutableStateOf("") }
+    var month by remember { mutableStateOf("") }
+    var year by remember { mutableStateOf("") }
+    var sex by remember { mutableStateOf("") }
+    var age by remember { mutableIntStateOf(0) }
+    var bmi by remember { mutableDoubleStateOf(0.0) }
     var isLoading by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -47,15 +52,34 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit, onNavigateBack: () -> Unit) {
             val heightInMeters = (feetVal * ftToMeters) + (inchesVal * inToMeters)
             val weightInKg = weightValLbs * lbsToKg
             if (heightInMeters > 0) {
-                bmi = (weightInKg / (heightInMeters * heightInMeters)).let { Math.round(it * 10.0) / 10.0 }
+                bmi = round(weightInKg / (heightInMeters * heightInMeters) * 10.0) / 10.0
             }
         }
     }
 
+    // Calculate age as user types DOB
+    LaunchedEffect(day, month, year) {
+        val dayVal = day.toIntOrNull()
+        val monthVal = month.toIntOrNull()
+        val yearVal = year.toIntOrNull()
+
+        if (dayVal != null && monthVal != null && yearVal != null) {
+            val dob = Calendar.getInstance()
+            dob.set(yearVal, monthVal - 1, dayVal)
+            val today = Calendar.getInstance()
+            var calculatedAge = today.get(Calendar.YEAR) - dob.get(Calendar.YEAR)
+            if (today.get(Calendar.DAY_OF_YEAR) < dob.get(Calendar.DAY_OF_YEAR)) {
+                calculatedAge--
+            }
+            age = calculatedAge
+        }
+    }
+
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("User Details") },
+                title = { Text("Account Information") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -64,11 +88,11 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit, onNavigateBack: () -> Unit) {
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) {
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(it)
+                .padding(paddingValues)
                 .padding(32.dp)
                 .verticalScroll(rememberScrollState()), // Make it scrollable
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -110,11 +134,74 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit, onNavigateBack: () -> Unit) {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Date of Birth Input Row
+            Text("Date of Birth", style = MaterialTheme.typography.bodyLarge)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = month,
+                    onValueChange = { month = it },
+                    label = { Text("MM") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = day,
+                    onValueChange = { day = it },
+                    label = { Text("DD") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = year,
+                    onValueChange = { year = it },
+                    label = { Text("YYYY") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1.5f)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Sex Selection
+            var expanded by remember { mutableStateOf(false) }
+            val sexOptions = listOf("Male", "Female")
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = it }
+            ) {
+                OutlinedTextField(
+                    value = sex,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Sex") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    sexOptions.forEach { selectionOption ->
+                        DropdownMenuItem(
+                            text = { Text(selectionOption) },
+                            onClick = {
+                                sex = selectionOption
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(32.dp))
 
             Text("Harshness Level")
             Slider(
-                value = 0.5f, 
+                value = 0.5f,
                 onValueChange = { coroutineScope.launch { snackbarHostState.showSnackbar("Nope, you can't change this") } },
                 modifier = Modifier.fillMaxWidth(),
                 colors = SliderDefaults.colors(
@@ -130,8 +217,11 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit, onNavigateBack: () -> Unit) {
                     val feetVal = feet.toDoubleOrNull()
                     val inchesVal = inches.toDoubleOrNull()
                     val weightValLbs = weightLbs.toDoubleOrNull()
+                    val dayVal = day.toIntOrNull()
+                    val monthVal = month.toIntOrNull()
+                    val yearVal = year.toIntOrNull()
 
-                    if (feetVal == null || inchesVal == null || weightValLbs == null) {
+                    if (feetVal == null || inchesVal == null || weightValLbs == null || dayVal == null || monthVal == null || yearVal == null || sex.isBlank()) {
                         coroutineScope.launch { snackbarHostState.showSnackbar("Please enter valid numbers for all fields.") }
                         return@Button
                     }
@@ -143,17 +233,22 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit, onNavigateBack: () -> Unit) {
                         val personalInfoRef = db.collection("users").document(user.uid)
                             .collection("userPersonalInfo").document("personal")
 
-                        // Format height as a string like "6'2\""
-                        val heightString = "${feetVal.toInt()}'${inchesVal.toInt()}\""
+                        val totalHeightInInches = (feetVal * 12) + inchesVal
+                        val dobCalendar = Calendar.getInstance().apply {
+                            set(yearVal, monthVal - 1, dayVal)
+                        }
 
                         // Save the formatted height string and other data
                         val updates = mapOf(
-                            "height" to heightString,
+                            "height" to totalHeightInInches,
                             "weight_lbs" to weightValLbs,
-                            "bmi" to bmi
+                            "bmi" to bmi,
+                            "dob" to dobCalendar.time,
+                            "age" to age,
+                            "sex" to sex
                         )
 
-                        personalInfoRef.update(updates)
+                        personalInfoRef.set(updates)
                             .addOnSuccessListener {
                                 isLoading = false
                                 onSaveSuccess() // Navigate on success
@@ -176,5 +271,3 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit, onNavigateBack: () -> Unit) {
         }
     }
 }
-
-
