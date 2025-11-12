@@ -6,8 +6,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material3.*
@@ -15,10 +13,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.google.firebase.Firebase
+import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
@@ -26,13 +23,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 private data class ProfileScreenState(
-    val email: String = "",
-    val password: String = "",
     val feet: String = "",
     val inches: String = "",
     val weight: String = "",
     val profileText: String = "Please sign up or log in.",
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val isLoggedIn: Boolean = false
 )
 
 private class ProfileScreenEvents(
@@ -40,19 +36,21 @@ private class ProfileScreenEvents(
     private val db: FirebaseFirestore,
     private val coroutineScope: CoroutineScope,
     private val snackbarHostState: SnackbarHostState,
-    private val state: MutableState<ProfileScreenState>
+    private val state: MutableState<ProfileScreenState>,
+    private val navController: NavController
 ) {
-    // --- Conversion Constants ---
     private val lbsToKg = 0.453592
     private val metersToFeet = 3.28084
     private val metersToInches = 39.3701
 
-    fun onEmailChange(newValue: String) {
-        state.value = state.value.copy(email = newValue)
-    }
-
-    fun onPasswordChange(newValue: String) {
-        state.value = state.value.copy(password = newValue)
+    init {
+        auth.addAuthStateListener { firebaseAuth ->
+            val user = firebaseAuth.currentUser
+            state.value = state.value.copy(isLoggedIn = user != null)
+            if (user == null) {
+                clearState()
+            }
+        }
     }
 
     fun onFeetChange(newValue: String) {
@@ -67,31 +65,13 @@ private class ProfileScreenEvents(
         state.value = state.value.copy(weight = newValue)
     }
 
-    fun onSignUp() = coroutineScope.launch {
-        if (!validateAuthInputs()) return@launch
-        setLoading(true)
-        try {
-            val result = auth.createUserWithEmailAndPassword(state.value.email, state.value.password).await()
-            showSnackbar("Account created successfully!")
-            result.user?.uid?.let { loadProfileData(it) }
-        } catch (e: Exception) {
-            showSnackbar("Signup failed: ${e.message}")
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    fun onLogin() = coroutineScope.launch {
-        if (!validateAuthInputs()) return@launch
-        setLoading(true)
-        try {
-            val result = auth.signInWithEmailAndPassword(state.value.email, state.value.password).await()
-            showSnackbar("Logged in successfully!")
-            result.user?.uid?.let { loadProfileData(it) }
-        } catch (e: Exception) {
-            showSnackbar("Login failed: ${e.message}")
-        } finally {
-            setLoading(false)
+    fun onLogout() {
+        auth.signOut()
+        showSnackbar("You have been logged out.")
+        navController.navigate("login") {
+            popUpTo(navController.graph.startDestinationId) {
+                inclusive = true
+            }
         }
     }
 
@@ -113,17 +93,19 @@ private class ProfileScreenEvents(
 
         setLoading(true)
         try {
-
             val heightM = (feetVal / metersToFeet) + (inchesVal / metersToInches)
             val weightKg = weightLbs * lbsToKg
-
             val bmi = calculateAndFormatBMI(weightKg, heightM)
-            val userProfile = mapOf("height" to heightM, "weight" to weightKg, "bmi" to bmi) // Store as metric
+            val heightString = "${feetVal.toInt()}'${inchesVal.toInt()}\""
 
+            val userProfile = mapOf(
+                "height" to heightString,
+                "weight_lbs" to weightLbs,
+                "bmi" to bmi
+            )
 
-            db.collection("users").document(uid).set(userProfile).await()
+            db.collection("users").document(uid).collection("userPersonalInfo").document("personal").set(userProfile).await()
             showSnackbar("Profile saved!")
-
 
             displayProfile(feetVal, inchesVal, weightLbs, bmi)
         } catch (e: Exception) {
@@ -137,7 +119,6 @@ private class ProfileScreenEvents(
         auth.currentUser?.uid?.let { loadProfileData(it) }
     }
 
-    // --- Private Helper Functions (Updated) ---
     private fun setLoading(isLoading: Boolean) {
         state.value = state.value.copy(isLoading = isLoading)
     }
@@ -148,31 +129,33 @@ private class ProfileScreenEvents(
 
     private fun loadProfileData(uid: String) {
         setLoading(true)
-        db.collection("users").document(uid).get()
+        db.collection("users").document(uid).collection("userPersonalInfo").document("personal").get()
             .addOnSuccessListener { doc ->
                 if (doc != null && doc.exists()) {
-                    val loadedHeightM = doc.getDouble("height")
-                    val loadedWeightKg = doc.getDouble("weight")
+                    val heightString = doc.getString("height")
+                    val loadedWeightLbs = doc.getDouble("weight_lbs")
+                    val bmi = doc.getDouble("bmi")
 
-                    if (loadedHeightM != null && loadedWeightKg != null) {
+                    if (heightString != null && loadedWeightLbs != null && bmi != null) {
+                        val parts = heightString.replace("\"", "").split("'")
+                        if (parts.size == 2) {
+                            val feet = parts[0]
+                            val inches = parts[1]
 
-                        val totalInches = loadedHeightM * metersToInches
-                        val feet = (totalInches / 12).toInt()
-                        val inches = totalInches % 12
-                        val weightLbs = loadedWeightKg / lbsToKg
-
-
-                        state.value = state.value.copy(
-                            feet = feet.toString(),
-                            inches = (Math.round(inches * 10.0) / 10.0).toString(),
-                            weight = (Math.round(weightLbs * 10.0) / 10.0).toString()
-                        )
-
-                        val bmi = calculateAndFormatBMI(loadedWeightKg, loadedHeightM)
-                        displayProfile(feet.toDouble(), inches, weightLbs, bmi)
+                            state.value = state.value.copy(
+                                feet = feet,
+                                inches = inches,
+                                weight = loadedWeightLbs.toString()
+                            )
+                            displayProfile(feet.toDouble(), inches.toDouble(), loadedWeightLbs, bmi)
+                        } else {
+                            updateProfileText("Welcome! Please save your height and weight.")
+                        }
                     } else {
                         updateProfileText("Welcome! Please save your height and weight.")
                     }
+                } else {
+                    updateProfileText("Welcome! Please save your height and weight.")
                 }
             }
             .addOnFailureListener { e -> showSnackbar("Failed to load profile: ${e.message}") }
@@ -181,6 +164,10 @@ private class ProfileScreenEvents(
 
     private fun updateProfileText(text: String) {
         state.value = state.value.copy(profileText = text)
+    }
+
+    private fun clearState() {
+        state.value = ProfileScreenState()
     }
 
     private fun displayProfile(feet: Double, inches: Double, weightLbs: Double, bmiVal: Double) {
@@ -196,34 +183,29 @@ private class ProfileScreenEvents(
         if (heightM == 0.0) return 0.0
         return (weightKg / (heightM * heightM)).let { Math.round(it * 10.0) / 10.0 }
     }
-
-    private fun validateAuthInputs(): Boolean {
-        if (state.value.email.isBlank() || state.value.password.isBlank()) {
-            showSnackbar("Email and password cannot be empty.")
-            return false
-        }
-        return true
-    }
 }
 
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(navController: NavController) {
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val state = remember { mutableStateOf(ProfileScreenState()) }
 
-    val events = remember(coroutineScope, snackbarHostState) {
+    val events = remember(coroutineScope, snackbarHostState, navController) {
         ProfileScreenEvents(
             auth = FirebaseAuth.getInstance(),
             db = FirebaseFirestore.getInstance(),
             coroutineScope = coroutineScope,
             snackbarHostState = snackbarHostState,
-            state = state
+            state = state,
+            navController = navController
         )
     }
 
-    LaunchedEffect(Unit) {
-        events.loadProfileDataForCurrentUser()
+    LaunchedEffect(state.value.isLoggedIn) {
+        if (state.value.isLoggedIn) {
+            events.loadProfileDataForCurrentUser()
+        }
     }
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { paddingValues ->
@@ -244,37 +226,40 @@ private fun ProfileScreenContent(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(text = "Profile", style = MaterialTheme.typography.headlineLarge)
         Spacer(Modifier.height(16.dp))
 
-        ProfileDataCard(profileText = state.profileText)
-        Spacer(Modifier.height(24.dp))
+        Column(modifier = Modifier
+            .weight(1f)
+            .verticalScroll(rememberScrollState())) {
+            ProfileDataCard(profileText = state.profileText)
+            Spacer(Modifier.height(24.dp))
+            HealthDataSection(
+                feet = state.feet,
+                inches = state.inches,
+                weight = state.weight,
+                isLoading = state.isLoading,
+                onFeetChange = events::onFeetChange,
+                onInchesChange = events::onInchesChange,
+                onWeightChange = events::onWeightChange,
+                onSaveClick = events::onSaveProfile
+            )
+        }
 
-        AuthenticationSection(
-            email = state.email,
-            password = state.password,
-            isLoading = state.isLoading,
-            onEmailChange = events::onEmailChange,
-            onPasswordChange = events::onPasswordChange,
-            onLoginClick = events::onLogin,
-            onSignUpClick = events::onSignUp
-        )
-        Spacer(Modifier.height(24.dp))
-
-        HealthDataSection(
-            feet = state.feet,
-            inches = state.inches,
-            weight = state.weight,
-            isLoading = state.isLoading,
-            onFeetChange = events::onFeetChange,
-            onInchesChange = events::onInchesChange,
-            onWeightChange = events::onWeightChange,
-            onSaveClick = events::onSaveProfile
-        )
+        if (state.isLoggedIn) {
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = events::onLogout,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.isLoading,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("Logout")
+            }
+        }
     }
 }
 
@@ -291,46 +276,6 @@ private fun ProfileDataCard(profileText: String) {
     }
 }
 
-@Composable
-private fun AuthenticationSection(
-    email: String,
-    password: String,
-    isLoading: Boolean,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onLoginClick: () -> Unit,
-    onSignUpClick: () -> Unit
-) {
-    OutlinedTextField(
-        value = email,
-        onValueChange = onEmailChange,
-        label = { Text("Email") },
-        leadingIcon = { Icon(Icons.Default.Email, "Email") },
-        modifier = Modifier.fillMaxWidth(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-        enabled = !isLoading
-    )
-    Spacer(Modifier.height(8.dp))
-    OutlinedTextField(
-        value = password,
-        onValueChange = onPasswordChange,
-        label = { Text("Password") },
-        leadingIcon = { Icon(Icons.Default.Lock, "Password") },
-        modifier = Modifier.fillMaxWidth(),
-        visualTransformation = PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        enabled = !isLoading
-    )
-    Spacer(Modifier.height(16.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = onLoginClick, modifier = Modifier.weight(1f), enabled = !isLoading) {
-            Text("Login")
-        }
-        OutlinedButton(onClick = onSignUpClick, modifier = Modifier.weight(1f), enabled = !isLoading) {
-            Text("Sign Up")
-        }
-    }
-}
 
 @Composable
 private fun HealthDataSection(
@@ -343,7 +288,6 @@ private fun HealthDataSection(
     onWeightChange: (String) -> Unit,
     onSaveClick: () -> Unit
 ) {
-    // Updated UI for Feet and Inches
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -371,7 +315,7 @@ private fun HealthDataSection(
     OutlinedTextField(
         value = weight,
         onValueChange = onWeightChange,
-        label = { Text("Weight (lbs)") }, // Updated label
+        label = { Text("Weight (lbs)") },
         leadingIcon = { Icon(Icons.Default.MonitorWeight, "Weight") },
         modifier = Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -389,5 +333,3 @@ private fun HealthDataSection(
         }
     }
 }
-
-

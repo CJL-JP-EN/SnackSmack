@@ -6,12 +6,18 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.snacksmack.ui.theme.SnackSmackTheme
-
+import com.google.firebase.auth.FirebaseAuth
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,18 +26,85 @@ class MainActivity : ComponentActivity() {
         setContent {
             SnackSmackTheme {
                 val navController = rememberNavController()
+                val waterViewModel: WaterViewModel = viewModel()
+
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = navBackStackEntry?.destination?.route
+                val screensWithNavBar = listOf("home", "profile", "waterTracking", "calendar", "Snack")
+
                 Scaffold(
-                    bottomBar = { NavigationButtons(navController = navController) }
+                    bottomBar = {
+                        if (currentRoute?.startsWith("calendar") == true || currentRoute in screensWithNavBar) {
+                            NavigationButtons(navController = navController)
+                        }
+                    }
                 ) { innerPadding ->
                     NavHost(
                         navController = navController,
-                        startDestination = "home",
+                        startDestination = "login",
                         modifier = Modifier.padding(innerPadding)
                     ) {
-                        composable("home") { HomeScreen() }
-                        composable("profile") { ProfileScreen() }
-                        composable("waterTracking") { waterTrackingScreen() }
-                        composable("calendar") { CalendarScreen() }
+                        composable("home") {
+                            HomeScreen(
+                                onOpenCalendar = { navController.navigate("calendar?showCreate=true") },
+                                waterViewModel = waterViewModel
+                            )
+                        }
+                        composable("Snack") { SnackTrackingScreen() }
+                        composable("profile") { ProfileScreen(navController) }
+                        composable("waterTracking") { WaterTrackingScreen(waterViewModel) }
+                        composable(
+                            route = "calendar?showCreate={showCreate}",
+                            arguments = listOf(navArgument("showCreate") {
+                                type = NavType.BoolType
+                                defaultValue = false
+                            })
+                        ) {
+                            CalendarScreen(showCreateEventDialog = it.arguments?.getBoolean("showCreate") ?: false)
+                        }
+
+                        composable("login") {
+                            val currentUser = FirebaseAuth.getInstance().currentUser
+                            if (currentUser != null) {
+                                LaunchedEffect(Unit) {
+                                    navController.navigate("home") {
+                                        popUpTo("login") { inclusive = true }
+                                    }
+                                }
+                            } else {
+                                LoginScreen(
+                                    onLoginSuccess = {
+                                        navController.navigate("home") {
+                                            popUpTo("login") { inclusive = true }
+                                        }
+                                    },
+                                    onNavigateToSignUp = { navController.navigate("SignUpScreen") }
+                                )
+                            }
+                        }
+
+                        composable("SignUpScreen") {
+                            SignUpScreen(
+                                onSignUpSuccess = {
+                                    navController.navigate("userInfo") {
+                                        popUpTo("SignUpScreen") { inclusive = true }
+                                    }
+                                },
+                                onNavigateToLogin = { navController.popBackStack() },
+                                onNavigateBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        composable("userInfo") {
+                            UserInfoScreen(
+                                onSaveSuccess = {
+                                    navController.navigate("home") {
+                                        popUpTo("login") { inclusive = true }
+                                    }
+                                },
+                                onNavigateBack = { navController.popBackStack() }
+                            )
+                        }
                     }
                 }
             }

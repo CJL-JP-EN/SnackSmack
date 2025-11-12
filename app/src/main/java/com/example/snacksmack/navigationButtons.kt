@@ -1,3 +1,4 @@
+
 package com.example.snacksmack
 
 import androidx.annotation.DrawableRes
@@ -20,8 +21,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 fun NavigationButtons(navController: NavController) {
     // The items list now uses your custom PNG icons from the drawable folder.
     val items = listOf(
-        NavigationItem("Home", "home", R.drawable.home_icon),
+        NavigationItem("Snack", "Snack", R.drawable.cookie_icon),
         NavigationItem("Water", "waterTracking", R.drawable.glass_icon),
+        NavigationItem("Home", "home", R.drawable.home_icon),
         NavigationItem("Calendar", "calendar", R.drawable.calendar_icon),
         NavigationItem("Profile", "profile", R.drawable.user_icon)
     )
@@ -30,6 +32,7 @@ fun NavigationButtons(navController: NavController) {
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
         items.forEach { item ->
+            val isSelected = currentRoute?.startsWith(item.route) == true
             NavigationBarItem(
                 icon = {
                     Icon(
@@ -38,7 +41,7 @@ fun NavigationButtons(navController: NavController) {
                         modifier = Modifier.size(26.dp) // Set icon size
                     )
                 },
-                selected = currentRoute == item.route,
+                selected = isSelected,
                 onClick = {
                     navController.navigate(item.route) {
                         popUpTo(navController.graph.startDestinationId)

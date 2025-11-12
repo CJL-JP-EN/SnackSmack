@@ -1,44 +1,70 @@
 package com.example.snacksmack
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
-import com.example.snacksmack.notifications.NotificationHelper   // <-- NEW helper import
+import com.example.snacksmack.notifications.NotificationHelper
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onOpenCalendar: () -> Unit,
+    waterViewModel: WaterViewModel
+) {
     val context = LocalContext.current
     var useHarsh by remember { mutableStateOf(true) }
+    var bmiValue by remember { mutableStateOf<Float?>(null) }
+    var username by remember { mutableStateOf("") }
 
-    // Create notification channel once (new API)
+    // Create notification channel
     LaunchedEffect(Unit) { NotificationHelper.createChannel(context) }
 
-    // Current user (same as your code)
+    // Current user
     val currentUser = FirebaseAuth.getInstance().currentUser
     val uid = currentUser?.uid
 
-    // Android 13+ permission request
+    // Fetch user data
+    if (uid != null) {
+        LaunchedEffect(uid) {
+            val db = FirebaseFirestore.getInstance()
+            val userDocRef = db.collection("users").document(uid)
+
+            // Account info (username)
+            userDocRef.collection("userAccountInfo").document("account").get()
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        username = document.getString("username") ?: ""
+                    }
+                }
+
+            // Personal info (BMI)
+            userDocRef.collection("userPersonalInfo").document("personal").get()
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        bmiValue = document.getDouble("bmi")?.toFloat()
+                    }
+                }
+        }
+    }
+
+    // Android 13+ POST_NOTIFICATIONS (kept since you had it)
     val requestPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) {
-                // New API call (persistent=false gives a normal banner)
-                NotificationHelper.showRandomSnackAlert(context, useHarsh)
-            }
+            if (granted) NotificationHelper.showRandomSnackAlert(context, useHarsh)
         }
 
     Column(
@@ -58,51 +84,42 @@ fun HomeScreen() {
             text = "Welcome Back",
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .align(Alignment.Start)
-                .padding(start = 16.dp)
+            modifier = Modifier.align(Alignment.Start).padding(start = 16.dp)
         )
         Spacer(Modifier.height(10.dp))
 
-        if (uid != null) {
+        if (username.isNotBlank()) {
             Text(
-                text = uid,
+                text = username,
                 fontSize = 22.sp,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(start = 16.dp)
+                modifier = Modifier.align(Alignment.CenterHorizontally)
             )
         }
 
         Spacer(Modifier.height(10.dp))
+        bmiLine(bmiValue = bmiValue)
 
-        // TEST button (remove later if you want the app fully auto-scheduled)
-        Button(onClick = {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val granted = ContextCompat.checkSelfPermission(
-                    context, Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
-                if (granted) {
-                    NotificationHelper.showRandomSnackAlert(context, useHarsh)
-                } else {
-                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        Spacer(Modifier.height(24.dp))
+
+        // Stat cards
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .aspectRatio(1f),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.6f))
+            ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    WaterCupWidget(vm = waterViewModel)
                 }
-            } else {
-                NotificationHelper.showRandomSnackAlert(context, useHarsh)
             }
-        }) {
-            Text("Random Snack Alert (banner)")
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(if (useHarsh) "Mode: Harsh" else "Mode: Supportive")
-            Spacer(Modifier.width(12.dp))
-            Button(onClick = { useHarsh = !useHarsh }) {
-                Text("Toggle Tone")
-            }
+            CalendarCard(modifier = Modifier.weight(1f).aspectRatio(1f), onClick = onOpenCalendar)
         }
     }
 }
