@@ -96,11 +96,5 @@ fun HomeScreen(
         Spacer(Modifier.height(10.dp))
         bmiLine(bmiValue = bmiValue)
 
-        // Open Snack Wheel button
-        Spacer(Modifier.height(24.dp))
-        Button(
-            onClick = onOpenSnackWheel,
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Open Snack Wheel 🍩") }
     }
 }

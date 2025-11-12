@@ -177,10 +177,4 @@ fun UserInfoScreen(onSaveSuccess: () -> Unit, onNavigateBack: () -> Unit) {
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun UserInfoScreenPreview() {
-    SnackSmackTheme {
-        UserInfoScreen(onSaveSuccess = {}, onNavigateBack = {})
-    }
-}
+
