@@ -32,10 +32,8 @@ import java.time.temporal.TemporalAdjusters
 
 @Composable
 fun WaterTrackingScreen(
-    owner: ViewModelStoreOwner = LocalContext.current as ComponentActivity
+    vm: WaterViewModel
 ) {
-    val vm: WaterViewModel = viewModel(owner)
-
     LaunchedEffect(Unit) {
         vm.resetIfNewDay()
     }
@@ -49,7 +47,8 @@ fun WaterTrackingScreen(
         onRemoveCup = vm::removeCup,
         onSetGoal = vm::updateGoalOz,
         shouldPromptGoal = vm.shouldPromptGoalOnce(),
-        onPromptSeen = vm::markGoalPromptSeen
+        onPromptSeen = vm::markGoalPromptSeen,
+        getWeeklyData = vm::getWeeklyData
     )
 }
 
@@ -64,7 +63,8 @@ private fun WaterTrackingInternal(
     onRemoveCup: () -> Unit,
     onSetGoal: (Int) -> Unit,
     shouldPromptGoal: Boolean,
-    onPromptSeen: () -> Unit
+    onPromptSeen: () -> Unit,
+    getWeeklyData: (LocalDate) -> Map<LocalDate, Int>
 ) {
     val animated = rememberAnimatedProgress(progress)
     val showCongrats = progress >= 1f
@@ -132,7 +132,7 @@ private fun WaterTrackingInternal(
         Spacer(Modifier.height(16.dp))
 
         // Weekly progress section (bottom)
-        WeeklyProgressSection(goalOz = goalOz)
+        WeeklyProgressSection(goalOz = goalOz, getWeeklyData = getWeeklyData)
 
         if (showGoalDialog) {
             GoalDialog(
@@ -225,17 +225,15 @@ private fun GoalDialog(
 @Composable
 private fun WeeklyProgressSection(
     goalOz: Int,
-    owner: ViewModelStoreOwner = LocalContext.current as ComponentActivity
+    getWeeklyData: (LocalDate) -> Map<LocalDate, Int>
 ) {
-    val vm: WaterViewModel = viewModel(owner)
     var currentWeekOffset by remember { mutableStateOf(0) }
 
     val today = LocalDate.now()
     val formatter = DateTimeFormatter.ofPattern("MMM d")
 
     val startOfWeek = today.minusWeeks(currentWeekOffset.toLong()).with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
-
-    val weeklyData = vm.getWeeklyData(startOfWeek)
+    val weeklyData = getWeeklyData(startOfWeek)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Weekly Progress", style = MaterialTheme.typography.titleMedium)
@@ -278,7 +276,9 @@ private fun WeeklyProgressSection(
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.Bottom
             ) {
-                sortedData.forEach { (date, value) ->
+                (0..6).forEach { i ->
+                    val day = startOfWeek.plusDays(i.toLong())
+                    val value = weeklyData[day] ?: 0
                     val percent = if (goalOz > 0) (value.toFloat() / goalOz).coerceIn(0f, 1f) else 0f
                     val anim by animateFloatAsState(
                         targetValue = percent,
@@ -304,9 +304,10 @@ private fun WeeklyProgressSection(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
-                sortedData.forEach { (date, _) ->
+                (0..6).forEach { i ->
+                    val day = startOfWeek.plusDays(i.toLong())
                     Text(
-                        date.dayOfWeek.name.take(3),
+                        day.dayOfWeek.name.take(3),
                         fontSize = 12.sp,
                         color = Color(0xFF004D40)
                     )

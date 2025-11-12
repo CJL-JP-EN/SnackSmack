@@ -32,11 +32,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 
 @Composable
 fun SnackTrackingScreen() {
-    // Single, safe VM creation (works for ViewModel and AndroidViewModel)
-    val app = LocalContext.current.applicationContext as Application
-    val vm: SnackViewModel = viewModel(
-        factory = ViewModelProvider.AndroidViewModelFactory.getInstance(app)
-    )
+    val vm: SnackViewModel = viewModel()
 
     LaunchedEffect(Unit) { vm.resetIfNewDay() }
 

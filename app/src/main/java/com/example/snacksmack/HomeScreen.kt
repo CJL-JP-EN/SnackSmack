@@ -2,12 +2,15 @@ package com.example.snacksmack
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -19,7 +22,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
 fun HomeScreen(
-    onOpenSnackWheel: () -> Unit
+    onOpenCalendar: () -> Unit,
+    waterViewModel: WaterViewModel
 ) {
     val context = LocalContext.current
     var useHarsh by remember { mutableStateOf(true) }
@@ -96,5 +100,26 @@ fun HomeScreen(
         Spacer(Modifier.height(10.dp))
         bmiLine(bmiValue = bmiValue)
 
+        Spacer(Modifier.height(24.dp))
+
+        // Stat cards
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .aspectRatio(1f),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.6f))
+            ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    WaterCupWidget(vm = waterViewModel)
+                }
+            }
+            CalendarCard(modifier = Modifier.weight(1f).aspectRatio(1f), onClick = onOpenCalendar)
+        }
     }
 }
