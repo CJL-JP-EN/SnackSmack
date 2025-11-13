@@ -40,8 +40,8 @@ private class ProfileScreenEvents(
     private val navController: NavController
 ) {
     private val lbsToKg = 0.453592
-    private val metersToFeet = 3.28084
-    private val metersToInches = 39.3701
+    private val ftToMeters = 0.3048
+    private val inToMeters = 0.0254
 
     init {
         auth.addAuthStateListener { firebaseAuth ->
@@ -93,21 +93,21 @@ private class ProfileScreenEvents(
 
         setLoading(true)
         try {
-            val heightM = (feetVal / metersToFeet) + (inchesVal / metersToInches)
-            val weightKg = weightLbs * lbsToKg
-            val bmi = calculateAndFormatBMI(weightKg, heightM)
-            val heightString = "${feetVal.toInt()}'${inchesVal.toInt()}\""
+            val heightInMeters = (feetVal * ftToMeters) + (inchesVal * inToMeters)
+            val weightInKg = weightLbs * lbsToKg
+            val bmi = calculateAndFormatBMI(weightInKg, heightInMeters)
+            val totalHeightInInches = (feetVal * 12) + inchesVal
 
             val userProfile = mapOf(
-                "height" to heightString,
+                "height" to totalHeightInInches,
                 "weight_lbs" to weightLbs,
                 "bmi" to bmi
             )
 
-            db.collection("users").document(uid).collection("userPersonalInfo").document("personal").set(userProfile).await()
+            db.collection("users").document(uid).collection("userPersonalInfo").document("personal").update(userProfile).await()
             showSnackbar("Profile saved!")
 
-            displayProfile(feetVal, inchesVal, weightLbs, bmi)
+            loadProfileData(uid)
         } catch (e: Exception) {
             showSnackbar("Failed to save profile: ${e.message}")
         } finally {
@@ -132,25 +132,40 @@ private class ProfileScreenEvents(
         db.collection("users").document(uid).collection("userPersonalInfo").document("personal").get()
             .addOnSuccessListener { doc ->
                 if (doc != null && doc.exists()) {
-                    val heightString = doc.getString("height")
+                    val height = doc.get("height") // Can be String or Double
                     val loadedWeightLbs = doc.getDouble("weight_lbs")
                     val bmi = doc.getDouble("bmi")
+                    val age = doc.getLong("age")
+                    val sex = doc.getString("sex")
+                    val dobMap = doc.get("dob") as? Map<String, Long>
 
-                    if (heightString != null && loadedWeightLbs != null && bmi != null) {
-                        val parts = heightString.replace("\"", "").split("'")
-                        if (parts.size == 2) {
-                            val feet = parts[0]
-                            val inches = parts[1]
 
-                            state.value = state.value.copy(
-                                feet = feet,
-                                inches = inches,
-                                weight = loadedWeightLbs.toString()
-                            )
-                            displayProfile(feet.toDouble(), inches.toDouble(), loadedWeightLbs, bmi)
-                        } else {
-                            updateProfileText("Welcome! Please save your height and weight.")
+                    if (height != null && loadedWeightLbs != null && bmi != null) {
+                        var feet = 0.0
+                        var inches = 0.0
+
+                        if (height is String) {
+                            val parts = height.replace("\"", "").split("'")
+                            if (parts.size == 2) {
+                                feet = parts[0].toDoubleOrNull() ?: 0.0
+                                inches = parts[1].toDoubleOrNull() ?: 0.0
+                            }
+                        } else if (height is Number) {
+                            val heightInInches = height.toDouble()
+                            feet = (heightInInches / 12).toInt().toDouble()
+                            inches = heightInInches % 12
                         }
+
+                        state.value = state.value.copy(
+                            feet = feet.toInt().toString(),
+                            inches = inches.toInt().toString(),
+                            weight = loadedWeightLbs.toString()
+                        )
+
+                        val dobString = if(dobMap != null) "${dobMap["month"]}/${dobMap["day"]}/${dobMap["year"]}" else "N/A"
+
+                        displayProfile(feet, inches, loadedWeightLbs, bmi, age, sex, dobString)
+
                     } else {
                         updateProfileText("Welcome! Please save your height and weight.")
                     }
@@ -170,11 +185,16 @@ private class ProfileScreenEvents(
         state.value = ProfileScreenState()
     }
 
-    private fun displayProfile(feet: Double, inches: Double, weightLbs: Double, bmiVal: Double) {
+    private fun displayProfile(feet: Double, inches: Double, weightLbs: Double, bmiVal: Double, age: Long?, sex: String?, dob: String) {
+        val ageString = age?.toString() ?: "N/A"
+        val sexString = sex ?: "N/A"
         val text = """
             📏 Height: ${feet.toInt()}' ${Math.round(inches * 10.0) / 10.0}"
             ⚖️ Weight: ${Math.round(weightLbs * 10.0) / 10.0} lbs
             💪 BMI: $bmiVal
+            🎂 DOB: $dob
+            🧑 Age: $ageString
+            ጾ Sex: $sexString
         """.trimIndent()
         updateProfileText(text)
     }

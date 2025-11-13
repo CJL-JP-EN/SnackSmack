@@ -155,9 +155,6 @@ fun SignUpScreen(
                                             val accountRef = db.collection("users").document(uid).collection("userAccountInfo").document("account")
                                             batch.set(accountRef, mapOf("email" to email, "username" to username))
 
-                                            val personalRef = db.collection("users").document(uid).collection("userPersonalInfo").document("personal")
-                                            batch.set(personalRef, mapOf("bmi" to 0.0, "height" to "0'0\"", "weight_lbs" to 0.0))
-
                                             batch.commit().addOnCompleteListener { task ->
                                                 isLoading = false
                                                 if (task.isSuccessful) {
@@ -197,9 +194,6 @@ fun SignUpScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            TextButton(onClick = onNavigateToLogin) {
-                Text("Already have an account? Log in")
-            }
         }
     }
 }
