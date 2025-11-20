@@ -16,14 +16,14 @@ class WaterViewModel(
     private val state: SavedStateHandle
 ) : AndroidViewModel(app) {
 
-    private val prefs = app.getSharedPreferences(PREFSNAME, Context.MODE_PRIVATE)
+    private val prefs = app.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val gson = Gson()
 
     // constants
     val cupIncrementOz: Int = 8
 
     // state (persisted)
-    var goalOz by mutableStateOf(prefs.getInt(KEYGOAL, 64))
+    var goalOz by mutableStateOf(prefs.getInt(KEY_GOAL, 64))
         private set
 
     private var consumptionData by mutableStateOf(loadConsumptionData())
@@ -88,11 +88,20 @@ class WaterViewModel(
         }
     }
 
+    fun getMonthData(startOfMonth: LocalDate): Map<LocalDate, Int> {
+        val month = startOfMonth.month
+        return (0 until startOfMonth.lengthOfMonth()).associate { i ->
+            val date = startOfMonth.plusDays(i.toLong())
+            val dayId = date.toEpochDay()
+            date to (consumptionData[dayId] ?: 0)
+        }
+    }
+
     fun shouldPromptGoalOnce(): Boolean =
-        !prefs.getBoolean(KEYGOALPROMPTSEEN, false)
+        !prefs.getBoolean(KEY_GOAL_PROMPT_SEEN, false)
 
     fun markGoalPromptSeen() {
-        prefs.edit().putBoolean(KEYGOALPROMPTSEEN, true).apply()
+        prefs.edit().putBoolean(KEY_GOAL_PROMPT_SEEN, true).apply()
     }
 
     private fun updateConsumptionForToday() {
@@ -104,12 +113,12 @@ class WaterViewModel(
 
     private fun persist() {
         prefs.edit()
-            .putInt(KEYGOAL, goalOz)
+            .putInt(KEY_GOAL, goalOz)
             .putString(KEY_CONSUMPTION_DATA, gson.toJson(consumptionData))
             .apply()
 
-        state[KEYGOAL] = goalOz
-        state[KEYCONSUMED] = consumedOz // For UI to update
+        state[KEY_GOAL] = goalOz
+        state[KEY_CONSUMED] = consumedOz // For UI to update
     }
 
     private fun loadConsumptionData(): Map<Long, Int> {
@@ -119,8 +128,8 @@ class WaterViewModel(
             gson.fromJson(json, type)
         } else {
             // Try to migrate from old format
-            val oldConsumed = prefs.getInt(KEYCONSUMED, 0)
-            val oldDayId = prefs.getLong(KEYDAYID, getTodayId())
+            val oldConsumed = prefs.getInt(KEY_CONSUMED, 0)
+            val oldDayId = prefs.getLong(KEY_DAY_ID, getTodayId())
             if (oldConsumed > 0) {
                 mapOf(oldDayId to oldConsumed)
             } else {
@@ -137,11 +146,11 @@ class WaterViewModel(
     }
 
     companion object {
-        private const val PREFSNAME = "water_prefs"
-        private const val KEYGOAL = "goalOz"
-        private const val KEYCONSUMED = "consumedOz" // Still used for saved state handle
-        private const val KEYDAYID = "dayId" // Only used for migration now
-        private const val KEYGOALPROMPTSEEN = "goalPromptSeen"
+        private const val PREFS_NAME = "water_prefs"
+        private const val KEY_GOAL = "goalOz"
+        private const val KEY_CONSUMED = "consumedOz" // Still used for saved state handle
+        private const val KEY_DAY_ID = "dayId" // Only used for migration now
+        private const val KEY_GOAL_PROMPT_SEEN = "goalPromptSeen"
         private const val KEY_CONSUMPTION_DATA = "consumptionData"
     }
 }
