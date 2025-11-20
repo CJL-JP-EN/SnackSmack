@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.snacksmack.notifications.NotificationHelper
 import com.example.snacksmack.notifications.NotificationScheduler
 import com.google.gson.Gson
@@ -237,20 +238,18 @@ fun CalendarScreen(
 @Composable
 fun CalendarHeader(yearMonth: YearMonth, onPreviousMonth: () -> Unit, onNextMonth: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Button(
+        TextButton(
             onClick = onPreviousMonth,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4545A2))
-        ) { Text("<") }
+        ) { Text("<", fontSize = 30.sp) }
         Text(
             text = yearMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
             modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.titleLarge
         )
-        Button(
+        TextButton(
             onClick = onNextMonth,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4545A2))
-        ) { Text(">") }
+        ) { Text(">", fontSize = 30.sp) }
     }
 }
 
@@ -264,10 +263,11 @@ fun CalendarGrid(
 ) {
     val daysInMonth = yearMonth.lengthOfMonth()
     val firstDayOfMonth = yearMonth.atDay(1).dayOfWeek
+    val daysOfWeek = listOf(DayOfWeek.SUNDAY, DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY)
 
     Column {
         Row(modifier = Modifier.fillMaxWidth()) {
-            for (dayOfWeek in DayOfWeek.entries) {
+            for (dayOfWeek in daysOfWeek) {
                 Text(
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
@@ -279,9 +279,11 @@ fun CalendarGrid(
         }
         Spacer(modifier = Modifier.height(4.dp))
         LazyVerticalGrid(columns = GridCells.Fixed(7)) {
-            val emptyCells = (firstDayOfMonth.value % 7)
-            items(emptyCells) {
-                Box(modifier = Modifier.size(50.dp))
+            val emptyCells = daysOfWeek.indexOf(firstDayOfMonth)
+            if (emptyCells > 0) {
+                items(emptyCells) {
+                    Box(modifier = Modifier.size(50.dp))
+                }
             }
 
             items(daysInMonth) { day ->
