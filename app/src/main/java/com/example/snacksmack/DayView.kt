@@ -40,7 +40,7 @@ fun DayView(
             .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
             .border(
                 width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) Color(0xFF008577) else Color.LightGray,
+                color = if (isSelected) Color(0xFF34FFB9) else Color.LightGray,
                 shape = CircleShape
             ),
         contentAlignment = Alignment.Center
