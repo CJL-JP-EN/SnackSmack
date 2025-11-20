@@ -239,7 +239,7 @@ fun CalendarHeader(yearMonth: YearMonth, onPreviousMonth: () -> Unit, onNextMont
     Row(verticalAlignment = Alignment.CenterVertically) {
         Button(
             onClick = onPreviousMonth,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E88E5))
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4545A2))
         ) { Text("<") }
         Text(
             text = yearMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
@@ -249,7 +249,7 @@ fun CalendarHeader(yearMonth: YearMonth, onPreviousMonth: () -> Unit, onNextMont
         )
         Button(
             onClick = onNextMonth,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E88E5))
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4545A2))
         ) { Text(">") }
     }
 }
