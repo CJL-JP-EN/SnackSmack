@@ -50,7 +50,7 @@ fun NavigationButtons(navController: NavController) {
                 },
                 colors = NavigationBarItemDefaults.colors(
                     // This sets the highlight color behind the selected icon
-                    indicatorColor = Color(0xFF008577),
+                    indicatorColor = Color(0xFF4545A2),
                     // This sets the color of the icon itself when it's selected
                     selectedIconColor = Color.White,
                     // This sets the color for all the other unselected icons

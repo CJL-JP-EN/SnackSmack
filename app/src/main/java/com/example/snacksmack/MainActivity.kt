@@ -27,6 +27,7 @@ class MainActivity : ComponentActivity() {
             SnackSmackTheme {
                 val navController = rememberNavController()
                 val waterViewModel: WaterViewModel = viewModel()
+                val snackViewModel: SnackViewModel = viewModel()
 
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
@@ -60,7 +61,11 @@ class MainActivity : ComponentActivity() {
                                 defaultValue = false
                             })
                         ) {
-                            CalendarScreen(showCreateEventDialog = it.arguments?.getBoolean("showCreate") ?: false)
+                            CalendarScreen(
+                                showCreateEventDialog = it.arguments?.getBoolean("showCreate") ?: false,
+                                snackViewModel = snackViewModel,
+                                waterViewModel = waterViewModel
+                            )
                         }
 
                         composable("login") {

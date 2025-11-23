@@ -61,6 +61,16 @@ class SnackViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun getMonthPerCategory(startOfMonth: LocalDate): Map<LocalDate, IntArray> {
+        val month = startOfMonth.month
+        return (0 until startOfMonth.lengthOfMonth()).associate { i ->
+            val date = startOfMonth.plusDays(i.toLong())
+            val id = date.toEpochDay()
+            date to (dayData[id]?.copyOf() ?: IntArray(4))
+        }
+    }
+
+
     /** Call on resume/open just like WaterVM to roll into a fresh day. */
     fun resetIfNewDay() {
         val now = LocalDate.now().toEpochDay()
