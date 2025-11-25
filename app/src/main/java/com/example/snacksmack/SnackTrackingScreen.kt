@@ -1,34 +1,44 @@
 package com.example.snacksmack
-
-import android.app.Application
+import android.graphics.Paint
+import android.graphics.Typeface
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBackIos
+import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.res.ResourcesCompat
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModelProvider
+import kotlin.math.min
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.snacksmack.notifications.NotificationHelper
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
-import kotlin.math.min
-import androidx.compose.ui.graphics.nativeCanvas
+
+
 
 @Composable
 fun SnackTrackingScreen() {
@@ -36,8 +46,8 @@ fun SnackTrackingScreen() {
 
     LaunchedEffect(Unit) { vm.resetIfNewDay() }
 
-    val ctx = LocalContext.current
-    val counts = vm.getTodayCounts() // [protein, salty, sweet, healthy]
+    // This will re-read from VM on every recomposition
+    val counts = vm.getTodayCounts()
 
     val colors = listOf(
         Color(0xFF7E57C2), // Protein - purple
@@ -47,14 +57,21 @@ fun SnackTrackingScreen() {
     )
     val labels = listOf("Protein 🍗", "Salty 🧂", "Sweet 🍬", "Healthy 🥗")
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF7F7F7))
-            .padding(16.dp),
+            .padding(16.dp)
+            .verticalScroll(scrollState),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Snack Tracker", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(
+            "Snack Tracker",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
         Spacer(Modifier.height(6.dp))
         Text("Tap buttons to record snacks • Segments grow as you log")
 
@@ -70,36 +87,26 @@ fun SnackTrackingScreen() {
         Spacer(Modifier.height(16.dp))
 
         SnackButtons(
+            counts = counts,
             onAdd = { vm.addSnack(it) },
-            onRemove = { vm.removeSnack(it) }
+            onRemoveConfirmed = { vm.removeSnack(it) }
         )
 
         Spacer(Modifier.height(16.dp))
 
         SnackBars(counts = counts, colors = colors, labels = labels)
 
-        Spacer(Modifier.height(20.dp))
-
-        Button(onClick = {
-            NotificationHelper.createChannel(ctx)
-            NotificationHelper.showSnackSummary(
-                ctx,
-                protein = counts.getOrNull(SnackType.PROTEIN.ordinal) ?: 0,
-                salty   = counts.getOrNull(SnackType.SALTY.ordinal) ?: 0,
-                sweet   = counts.getOrNull(SnackType.SWEET.ordinal) ?: 0,
-                healthy = counts.getOrNull(SnackType.HEALTHY.ordinal) ?: 0
-            )
-        }) {
-            Text("Send Daily Snack Summary")
-        }
-
         Spacer(Modifier.height(24.dp))
 
-        WeeklySnackColorBars(vm = vm, colors = colors)
-        SnackLegend(colors = colors) // optional tiny legend under the chart
+        WeeklySnackProgressSection(vm = vm, colors = colors)
 
+        Spacer(Modifier.height(12.dp))
+
+        SnackLegend(colors = colors)
     }
 }
+
+/* ---------- WHEEL ---------- */
 
 @Composable
 private fun SnackWheel(
@@ -108,6 +115,13 @@ private fun SnackWheel(
     diameterDp: Dp,
     ringWidth: Dp
 ) {
+    val context = LocalContext.current
+
+    // 👇 Load your custom font ONCE per composition
+    val customTypeface = remember {
+        ResourcesCompat.getFont(context, R.font.sanur_beach)
+    }
+
     val total = counts.sum().coerceAtLeast(1)
     val proportions = counts.map { it.toFloat() / total.toFloat() }
     val animProps = proportions.map {
@@ -133,25 +147,28 @@ private fun SnackWheel(
                 sweepAngle = sweep,
                 useCenter = false,
                 topLeft = leftTop,
-                size = androidx.compose.ui.geometry.Size(d, d),
+                size = Size(d, d),
                 style = stroke
             )
             startAngle += sweep
         }
 
-        // Center label
+        // ------- Center label with custom font -------
         val totalText = "${counts.sum()} snack" + if (counts.sum() == 1) "" else "s"
+
         drawIntoCanvas { canvas ->
-            val paint = android.graphics.Paint().apply {
+            val paint = Paint().apply {
                 color = android.graphics.Color.parseColor("#2F3A40")
-                textAlign = android.graphics.Paint.Align.CENTER
+                textAlign = Paint.Align.CENTER
                 textSize = radius * 0.35f
                 isAntiAlias = true
-                typeface = android.graphics.Typeface.create(
-                    android.graphics.Typeface.DEFAULT_BOLD,
-                    android.graphics.Typeface.BOLD
-                )
+                typeface = customTypeface
+                    ?: Typeface.create(
+                        Typeface.DEFAULT_BOLD,
+                        Typeface.BOLD
+                    )
             }
+
             canvas.nativeCanvas.drawText(
                 totalText,
                 center.x,
@@ -162,131 +179,182 @@ private fun SnackWheel(
     }
 }
 
+        /* ---------- BUTTONS (WITH HONESTY POPUP) ---------- */
+
 @Composable
 private fun SnackButtons(
+    counts: IntArray,
     onAdd: (SnackType) -> Unit,
-    onRemove: (SnackType) -> Unit
+    onRemoveConfirmed: (SnackType) -> Unit
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = { onAdd(SnackType.PROTEIN) }) { Text("🍗 Protein +") }
-            Button(onClick = { onAdd(SnackType.SALTY) }) { Text("🧂 Salty +") }
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = { onAdd(SnackType.SWEET) }) { Text("🍬 Sweet +") }
-            Button(onClick = { onAdd(SnackType.HEALTHY) }) { Text("🥗 Healthy +") }
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = { onRemove(SnackType.PROTEIN) }) { Text("−🍗") }
-            OutlinedButton(onClick = { onRemove(SnackType.SALTY) }) { Text("−🧂") }
-            OutlinedButton(onClick = { onRemove(SnackType.SWEET) }) { Text("−🍬") }
-            OutlinedButton(onClick = { onRemove(SnackType.HEALTHY) }) { Text("−🥗") }
+    var showHonestyDialog by remember { mutableStateOf(false) }
+    var pendingRemoveType by remember { mutableStateOf<SnackType?>(null) }
+
+    fun handleRemove(type: SnackType) {
+        val idx = type.ordinal
+        val currentCount = counts.getOrNull(idx) ?: 0
+
+        // Only nag for SWEET or SALTY and only if they've logged 5+
+        if ((type == SnackType.SWEET || type == SnackType.SALTY) && currentCount >= 5) {
+            pendingRemoveType = type
+            showHonestyDialog = true
+        } else {
+            onRemoveConfirmed(type)
         }
     }
-}
-@Composable
-private fun WeeklySnackColorBars(
-    vm: SnackViewModel,
-    colors: List<Color>
-) {
-    val today = LocalDate.now()
-    val startOfWeek = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
-    // Recompute every recomposition so today's updates reflect immediately
-    val week: Map<LocalDate, IntArray> = vm.getWeekPerCategory(startOfWeek)
-    val fmt = DateTimeFormatter.ofPattern("EEE")
 
-    val EPS = 0.0001f // weight must be > 0
-
-    Spacer(Modifier.height(8.dp))
-    Text("Weekly Snapshot", style = MaterialTheme.typography.titleMedium)
-    Spacer(Modifier.height(8.dp))
-
-    // Keep the days ordered Sun..Sat
-    week.toSortedMap().forEach { (date, counts) ->
-        val dayLabel = date.format(fmt)
-        val total = counts.sum().coerceAtLeast(1)
-        val targetFractions: List<Float> = counts.map { it.toFloat() / total }
-
-        // Animate each category segment independently
-        val animatedFractions: List<Float> = targetFractions.mapIndexed { idx, f ->
-            val anim by animateFloatAsState(
-                targetValue = f,
-                animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
-                label = "wkSeg-$dayLabel-$idx"
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // Row 1: Protein + Salty
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SnackToggleButton(
+                label = "🍗 Protein",
+                color = Color(0xFF7E57C2),
+                onAdd = { onAdd(SnackType.PROTEIN) },
+                onRemove = { handleRemove(SnackType.PROTEIN) },
+                modifier = Modifier.weight(1f)
             )
-            anim
+            SnackToggleButton(
+                label = "🧂 Salty",
+                color = Color(0xFF4FC3F7),
+                onAdd = { onAdd(SnackType.SALTY) },
+                onRemove = { handleRemove(SnackType.SALTY) },
+                modifier = Modifier.weight(1f)
+            )
         }
 
+        Spacer(Modifier.height(8.dp))
+
+        // Row 2: Sweet + Healthy
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(22.dp)
-                .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(dayLabel, modifier = Modifier.width(46.dp))
-            Spacer(Modifier.width(6.dp))
+            SnackToggleButton(
+                label = "🍬 Sweet",
+                color = Color(0xFFFF7043),
+                onAdd = { onAdd(SnackType.SWEET) },
+                onRemove = { handleRemove(SnackType.SWEET) },
+                modifier = Modifier.weight(1f)
+            )
+            SnackToggleButton(
+                label = "🥗 Healthy",
+                color = Color(0xFF81C784),
+                onAdd = { onAdd(SnackType.HEALTHY) },
+                onRemove = { handleRemove(SnackType.HEALTHY) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
 
-            // Stacked bar: 4 colored segments
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(14.dp)
-                    .background(Color(0x11000000), RoundedCornerShape(3.dp))
-                    .padding(1.dp)
-            ) {
-                animatedFractions.forEachIndexed { i, fAnim ->
-                    // keep layout happy with EPS, hide color if actually zero
-                    val wasZero = targetFractions[i] == 0f
-                    val weightVal = if (fAnim > 0f) fAnim else EPS
-                    val color = if (wasZero) colors[i].copy(alpha = 0f) else colors[i]
+    if (showHonestyDialog && pendingRemoveType != null) {
+        val type = pendingRemoveType!!
+        val typeLabel = when (type) {
+            SnackType.SWEET -> "sweet"
+            SnackType.SALTY -> "salty"
+            SnackType.PROTEIN -> "protein"
+            SnackType.HEALTHY -> "healthy"
+        }
 
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .weight(weightVal)
-                            .background(color, RoundedCornerShape(2.dp))
-                    )
-                    if (i != animatedFractions.lastIndex) Spacer(Modifier.width(2.dp))
+        AlertDialog(
+            onDismissRequest = {
+                showHonestyDialog = false
+                pendingRemoveType = null
+            },
+            title = { Text("Be honest with yourself 👀") },
+            text = {
+                Text(
+                    "You’ve logged 5+ $typeLabel snacks today.\n" +
+                            "Are you really removing one, or are you trying to erase it from history? Don’t lie to yourself."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onRemoveConfirmed(type)
+                    showHonestyDialog = false
+                    pendingRemoveType = null
+                }) {
+                    Text("Yes, remove it")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showHonestyDialog = false
+                    pendingRemoveType = null
+                }) {
+                    Text("Keep it logged")
                 }
             }
+        )
+    }
+}
 
-            // Optional: small total at the end
-            Spacer(Modifier.width(6.dp))
-            Text(counts.sum().toString(), style = MaterialTheme.typography.labelSmall)
+
+/**
+ * Unified snack control: big chip with + and − inside.
+ */
+@Composable
+private fun SnackToggleButton(
+    label: String,
+    color: Color,
+    onAdd: () -> Unit,
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .height(56.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = color.copy(alpha = 0.12f),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.4f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // − button
+            OutlinedButton(
+                onClick = onRemove,
+                modifier = Modifier.size(width = 40.dp, height = 40.dp),
+                contentPadding = PaddingValues(0.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = Color.White.copy(alpha = 0.7f)
+                )
+            ) {
+                Text("−")
+            }
+
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            // + button
+            Button(
+                onClick = onAdd,
+                modifier = Modifier.size(width = 40.dp, height = 40.dp),
+                contentPadding = PaddingValues(0.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = color,
+                    contentColor = Color.White
+                )
+            ) {
+                Text("+")
+            }
         }
     }
 }
 
-@Composable
-private fun SnackLegend(colors: List<Color>) {
-    Spacer(Modifier.height(6.dp))
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        LegendDot(colors[0], "Protein")
-        LegendDot(colors[1], "Salty")
-        LegendDot(colors[2], "Sweet")
-        LegendDot(colors[3], "Healthy")
-    }
-}
 
-@Composable
-private fun LegendDot(color: Color, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .background(color, RoundedCornerShape(50))
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium)
-    }
-}
+/* ---------- TODAY BARS ---------- */
 
 @Composable
 private fun SnackBars(
@@ -325,52 +393,171 @@ private fun SnackBars(
     }
 }
 
+/* ---------- WEEKLY VERTICAL STACKED BARS ---------- */
+
 @Composable
-private fun WeeklySnackMiniBars(
+private fun WeeklySnackProgressSection(
     vm: SnackViewModel,
     colors: List<Color>
 ) {
-    val today = java.time.LocalDate.now()
-    val startOfWeek = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.SUNDAY))
-    val week = vm.getWeekPerCategory(startOfWeek)
-    val fmt = java.time.format.DateTimeFormatter.ofPattern("EEE")
+    // Force recomposition when VM’s data changes
+    val _version = vm.dataVersion
 
-    val EPS = 0.0001f // weight must be > 0
+    var weekOffset by remember { mutableStateOf(0) } // 0 = current week; 1 = previous, etc.
 
-    Spacer(Modifier.height(8.dp))
-    Text("Weekly Snapshot", style = MaterialTheme.typography.titleMedium)
-    Spacer(Modifier.height(8.dp))
+    val today = LocalDate.now()
+    val formatter = DateTimeFormatter.ofPattern("MMM d")
 
-    week.toSortedMap().forEach { (date, counts) ->
-        val dayLabel = date.format(fmt)
-        val total = counts.sum().coerceAtLeast(1)
+    val startOfWeek = today
+        .minusWeeks(weekOffset.toLong())
+        .with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
+
+    val weekMap = vm.getWeekPerCategory(startOfWeek).toSortedMap()
+    val totalsPerDay = weekMap.mapValues { (_, counts) -> counts.sum() }
+    val maxForWeek = totalsPerDay.values.maxOrNull()?.coerceAtLeast(1) ?: 1
+
+    val barMaxHeight = 90.dp
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Weekly progress", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { weekOffset++ }) {
+                Icon(
+                    imageVector = Icons.Filled.ArrowBackIos,
+                    contentDescription = "Previous week"
+                )
+            }
+
+            val endOfWeek = startOfWeek.plusDays(6)
+            Text(
+                text = "Week of ${startOfWeek.format(formatter)} - ${endOfWeek.format(formatter)}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            IconButton(
+                onClick = {
+                    if (weekOffset > 0) weekOffset--
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ArrowForwardIos,
+                    contentDescription = "Next week"
+                )
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(20.dp)
-                .padding(vertical = 3.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .height(barMaxHeight + 28.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
         ) {
-            Text(dayLabel, modifier = Modifier.width(52.dp))
-            Spacer(Modifier.width(6.dp))
+            weekMap.forEach { (date, counts) ->
+                val total = counts.sum()
+                val totalFraction =
+                    if (maxForWeek == 0) 0f
+                    else (total.toFloat() / maxForWeek.toFloat())
 
-            val fractions: List<Float> = counts.map { it.toFloat() / total }
-            Row(modifier = Modifier.fillMaxWidth()) {
-                fractions.forEachIndexed { i, f0 ->
-                    val f = if (f0 > 0f) f0 else EPS
-                    // Hide the color if this was actually zero to avoid visible slivers
-                    val c = if (f0 > 0f) colors[i] else colors[i].copy(alpha = 0f)
+                val categoryFractions: List<Float> =
+                    if (total == 0) List(4) { 0f }
+                    else counts.map { it.toFloat() / total.toFloat() }
 
+                val dayLabel = date.dayOfWeek.name
+                    .take(3)
+                    .lowercase()
+                    .replaceFirstChar { it.uppercase() }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Bottom
+                ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxHeight()
-                            .weight(f)
-                            .background(c, RoundedCornerShape(3.dp))
+                            .height(barMaxHeight * totalFraction.coerceIn(0f, 1f))
+                            .width(20.dp)
+                            .background(
+                                color = Color(0x11000000),
+                                shape = RoundedCornerShape(3.dp)
+                            )
+                    ) {
+                        if (total > 0) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(2.dp),
+                                verticalArrangement = Arrangement.Bottom
+                            ) {
+                                categoryFractions.forEachIndexed { index, f ->
+                                    val segFraction = f.coerceAtLeast(0f)
+                                    if (segFraction > 0f) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .weight(segFraction)
+                                                .background(
+                                                    colors[index],
+                                                    shape = RoundedCornerShape(3.dp)
+                                                )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(6.dp))
+
+                    Text(
+                        text = dayLabel,
+                        style = MaterialTheme.typography.labelSmall
                     )
-                    if (i != fractions.lastIndex) Spacer(Modifier.width(2.dp))
                 }
             }
         }
+    }
+}
+
+/* ---------- LEGEND ---------- */
+
+@Composable
+private fun SnackLegend(colors: List<Color>) {
+    Spacer(Modifier.height(6.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        LegendDot(colors[0], "Protein")
+        LegendDot(colors[1], "Salty")
+        LegendDot(colors[2], "Sweet")
+        LegendDot(colors[3], "Healthy")
+    }
+}
+
+@Composable
+private fun LegendDot(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(color, RoundedCornerShape(50))
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium)
     }
 }

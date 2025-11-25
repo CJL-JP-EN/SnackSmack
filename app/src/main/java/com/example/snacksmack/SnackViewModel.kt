@@ -13,8 +13,8 @@ import java.time.LocalDate
 enum class SnackType { PROTEIN, SALTY, SWEET, HEALTHY }
 
 /**
- * Stores per-day counts for 4 snack categories.
- * Persistence: SharedPreferences (JSON Map<Long, IntArray(4)>)
+ * Stores per-day counts for 4 snack categories:
+ * [PROTEIN, SALTY, SWEET, HEALTHY]
  */
 class SnackViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -25,7 +25,12 @@ class SnackViewModel(app: Application) : AndroidViewModel(app) {
     private var dayData: MutableMap<Long, IntArray> = load()
     private var todayId: Long = LocalDate.now().toEpochDay()
 
+    // Today's counts as observable state
     var countsToday by mutableStateOf(dayData.getOrPut(todayId) { IntArray(4) }.copyOf())
+        private set
+
+    // 🔹 Observable version used to force recomposition of weekly/monthly UIs
+    var dataVersion by mutableStateOf(0)
         private set
 
     val totalToday: Int
@@ -52,7 +57,7 @@ class SnackViewModel(app: Application) : AndroidViewModel(app) {
     /** For current day UI; returns a snapshot IntArray(size=4). */
     fun getTodayCounts(): IntArray = countsToday.copyOf()
 
-    /** Weekly mini helper: Map<LocalDate, IntArray(4)> for [startOfWeek..+6]. */
+    /** Weekly helper: Map<LocalDate, IntArray(4)> for [startOfWeek..startOfWeek+6]. */
     fun getWeekPerCategory(startOfWeek: LocalDate): Map<LocalDate, IntArray> {
         return (0..6).associate { i ->
             val date = startOfWeek.plusDays(i.toLong())
@@ -61,8 +66,8 @@ class SnackViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Monthly helper: Map<LocalDate, IntArray(4)> for each day in given month. */
     fun getMonthPerCategory(startOfMonth: LocalDate): Map<LocalDate, IntArray> {
-        val month = startOfMonth.month
         return (0 until startOfMonth.lengthOfMonth()).associate { i ->
             val date = startOfMonth.plusDays(i.toLong())
             val id = date.toEpochDay()
@@ -70,8 +75,7 @@ class SnackViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-
-    /** Call on resume/open just like WaterVM to roll into a fresh day. */
+    /** Call from screens on resume/open to ensure we’re on the correct “today”. */
     fun resetIfNewDay() {
         val now = LocalDate.now().toEpochDay()
         if (now != todayId) {
@@ -85,12 +89,15 @@ class SnackViewModel(app: Application) : AndroidViewModel(app) {
         val now = LocalDate.now().toEpochDay()
         if (now != todayId) {
             todayId = now
-            if (!dayData.containsKey(todayId)) dayData[todayId] = IntArray(4)
+            if (!dayData.containsKey(todayId)) {
+                dayData[todayId] = IntArray(4)
+            }
         }
     }
 
     private fun persist() {
         prefs.edit().putString(KEY_DATA, gson.toJson(dayData)).apply()
+        dataVersion++   // 🔥 bump version so weekly/monthly UI recomposes
     }
 
     private fun load(): MutableMap<Long, IntArray> {
