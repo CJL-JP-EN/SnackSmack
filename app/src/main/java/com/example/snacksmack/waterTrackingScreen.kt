@@ -1,16 +1,23 @@
 package com.example.snacksmack
 
-import androidx.activity.ComponentActivity
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -20,11 +27,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.ViewModelStoreOwner
-import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -74,6 +80,7 @@ private fun WaterTrackingInternal(
     )
     val pulse = rememberPulse(animated >= 1f)
     var showGoalDialog by remember { mutableStateOf(shouldPromptGoal) }
+    var showInfoDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -83,12 +90,27 @@ private fun WaterTrackingInternal(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Water Tracking",
-                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 28.sp)
-            )
-            Spacer(Modifier.height(6.dp))
-            Text("Goal: ${goalOz}oz • Drank: ${consumedOz}oz • Cup: +${cupIncrementOz}oz")
-            Text("Progress: ${(animated * 100).toInt()}%")
+
+            // Title + info icon
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    "Water Tracking",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontSize = 28.sp)
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = { showInfoDialog = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Water info",
+                        tint = Color(0xFF4FC3F7)
+                    )
+                }
+            }
+
+            // (Header stays clean – no stats text here)
 
             if (congratsAlpha > 0f) {
                 Spacer(Modifier.size(8.dp))
@@ -102,7 +124,8 @@ private fun WaterTrackingInternal(
                 )
             }
 
-            Spacer(Modifier.size(12.dp))
+            // ⬇️ increased this spacer so the cup + bars sit lower on the screen
+            Spacer(Modifier.height(32.dp))
 
             // Cup progress ring (💧 your cup graphic)
             Box(
@@ -122,10 +145,37 @@ private fun WaterTrackingInternal(
             Spacer(Modifier.height(16.dp))
 
             // Buttons ABOVE weekly progress
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onRemoveCup) { Text("−${cupIncrementOz}oz") }
-                Button(onClick = onAddCup) { Text("+${cupIncrementOz}oz") }
-                OutlinedButton(onClick = { showGoalDialog = true }) { Text("Set goal") }
+            val buttonColor = Color(0xFF4FC3F7)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                WaterControlButton(
+                    cupIncrementOz = cupIncrementOz,
+                    onRemove = onRemoveCup,
+                    onAdd = onAddCup,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                )
+
+                OutlinedButton(
+                    onClick = { showGoalDialog = true },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = buttonColor.copy(alpha = 0.1f),
+                        contentColor = buttonColor
+                    ),
+                    border = BorderStroke(1.dp, buttonColor.copy(alpha = 0.5f))
+                ) {
+                    Text("Set goal")
+                }
             }
         }
 
@@ -149,8 +199,131 @@ private fun WaterTrackingInternal(
                 }
             )
         }
+
+        // Snack-style overlay for the info
+        if (showInfoDialog) {
+            WaterInfoOverlay(
+                goalOz = goalOz,
+                consumedOz = consumedOz,
+                cupIncrementOz = cupIncrementOz,
+                progressPercent = (animated * 100).toInt(),
+                onDismiss = { showInfoDialog = false }
+            )
+        }
     }
 }
+
+@Composable
+private fun WaterControlButton(
+    cupIncrementOz: Int,
+    onRemove: () -> Unit,
+    onAdd: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val buttonColor = Color(0xFF4FC3F7) // Light blue from the water theme
+
+    Card(
+        shape = RoundedCornerShape(50), // Fully rounded corners
+        border = BorderStroke(1.dp, buttonColor.copy(alpha = 0.5f)),
+        colors = CardDefaults.cardColors(containerColor = buttonColor.copy(alpha = 0.1f)),
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onRemove) {
+                Icon(
+                    imageVector = Icons.Default.Remove,
+                    contentDescription = "Remove",
+                    tint = buttonColor
+                )
+            }
+
+            Text(
+                text = "${cupIncrementOz}oz",
+                color = buttonColor.copy(alpha = 0.8f),
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 12.dp)
+            )
+
+            IconButton(onClick = onAdd) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add",
+                    tint = buttonColor
+                )
+            }
+        }
+    }
+}
+
+/* ---------- SNACK-STYLE INFO OVERLAY ---------- */
+@Composable
+private fun WaterInfoOverlay(
+    goalOz: Int,
+    consumedOz: Int,
+    cupIncrementOz: Int,
+    progressPercent: Int,
+    onDismiss: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0x80000000)) // dim background
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            ) {
+                // tap anywhere to close
+                onDismiss()
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFFFDF5FF) // soft pastel like snack dialog
+            ),
+            modifier = Modifier
+                .padding(32.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "water check-in 👀",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                Text(
+                    text = "Goal: ${goalOz}oz\nDrank: ${consumedOz}oz\nCup size: +${cupIncrementOz}oz\nProgress: ${progressPercent}%",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 16.sp),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                Text(
+                    text = "tap anywhere to close",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF6BAFD6),
+                        fontWeight = FontWeight.Medium
+                    ),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
 /* ---------- GOAL DIALOG ---------- */
 @Composable
 private fun GoalDialog(
@@ -232,7 +405,8 @@ private fun WeeklyProgressSection(
     val today = LocalDate.now()
     val formatter = DateTimeFormatter.ofPattern("MMM d")
 
-    val startOfWeek = today.minusWeeks(currentWeekOffset.toLong()).with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
+    val startOfWeek = today.minusWeeks(currentWeekOffset.toLong())
+        .with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
     val weeklyData = getWeeklyData(startOfWeek)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -266,7 +440,6 @@ private fun WeeklyProgressSection(
                 .fillMaxWidth()
                 .padding(top = 12.dp)
         ) {
-            val sortedData = weeklyData.entries.sortedBy { it.key }
             val barMaxHeight = 100.dp
 
             Row(
@@ -279,7 +452,8 @@ private fun WeeklyProgressSection(
                 (0..6).forEach { i ->
                     val day = startOfWeek.plusDays(i.toLong())
                     val value = weeklyData[day] ?: 0
-                    val percent = if (goalOz > 0) (value.toFloat() / goalOz).coerceIn(0f, 1f) else 0f
+                    val percent = if (goalOz > 0) (value.toFloat() / goalOz)
+                        .coerceIn(0f, 1f) else 0f
                     val anim by animateFloatAsState(
                         targetValue = percent,
                         animationSpec = tween(700, easing = FastOutSlowInEasing),
