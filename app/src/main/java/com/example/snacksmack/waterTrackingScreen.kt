@@ -87,7 +87,8 @@ private fun WaterTrackingInternal(
             .fillMaxSize()
             .background(Color(0xFFF7F7F7))
             .padding(vertical = 24.dp, horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
@@ -105,27 +106,28 @@ private fun WaterTrackingInternal(
                     Icon(
                         imageVector = Icons.Default.Info,
                         contentDescription = "Water info",
-                        tint = Color(0xFF4FC3F7)
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
 
-            // (Header stays clean – no stats text here)
-
-            if (congratsAlpha > 0f) {
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    "🎉 Congrats! You reached your goal for the day!",
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 18.sp,
-                        color = Color(0xFF1976D2)
-                    ),
-                    modifier = Modifier.graphicsLayer(alpha = congratsAlpha)
-                )
+            // Congrats message area
+            Box(modifier = Modifier
+                .heightIn(min = 48.dp) // Reserve space even when hidden
+                .graphicsLayer(alpha = congratsAlpha),
+                contentAlignment = Alignment.Center
+            ) {
+                if (congratsAlpha > 0f) {
+                    Text(
+                        "🎉 Congrats! You reached your goal for the day!",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = 18.sp,
+                            color = Color(0xFF1976D2)
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
-
-            // ⬇️ increased this spacer so the cup + bars sit lower on the screen
-            Spacer(Modifier.height(32.dp))
 
             // Cup progress ring (💧 your cup graphic)
             Box(
@@ -145,7 +147,7 @@ private fun WaterTrackingInternal(
             Spacer(Modifier.height(16.dp))
 
             // Buttons ABOVE weekly progress
-            val buttonColor = Color(0xFF4FC3F7)
+            val buttonColor = MaterialTheme.colorScheme.primary
 
             Row(
                 modifier = Modifier
@@ -178,8 +180,6 @@ private fun WaterTrackingInternal(
                 }
             }
         }
-
-        Spacer(Modifier.height(16.dp))
 
         // Weekly progress section (bottom)
         WeeklyProgressSection(goalOz = goalOz, getWeeklyData = getWeeklyData)
@@ -220,7 +220,7 @@ private fun WaterControlButton(
     onAdd: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val buttonColor = Color(0xFF4FC3F7) // Light blue from the water theme
+    val buttonColor = MaterialTheme.colorScheme.primary // Light blue from the water theme
 
     Card(
         shape = RoundedCornerShape(50), // Fully rounded corners
@@ -267,61 +267,40 @@ private fun WaterInfoOverlay(
     progressPercent: Int,
     onDismiss: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0x80000000)) // dim background
-            .clickable(
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(28.dp),
+        containerColor = Color(0xFFFDF5FF), // soft pastel from snack dialog
+        title = {
+            Text(
+                text = "Water Check-in 👀",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        text = {
+            Text(
+                text = "Goal: ${goalOz}oz\nDrank: ${consumedOz}oz\nCup size: +${cupIncrementOz}oz\nProgress: ${progressPercent}%",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 16.sp),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
             ) {
-                // tap anywhere to close
-                onDismiss()
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Card(
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFFDF5FF) // soft pastel like snack dialog
-            ),
-            modifier = Modifier
-                .padding(32.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "water check-in 👀",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(Modifier.height(16.dp))
-
-                Text(
-                    text = "Goal: ${goalOz}oz\nDrank: ${consumedOz}oz\nCup size: +${cupIncrementOz}oz\nProgress: ${progressPercent}%",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 16.sp),
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(Modifier.height(16.dp))
-
-                Text(
-                    text = "tap anywhere to close",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF6BAFD6),
-                        fontWeight = FontWeight.Medium
-                    ),
-                    textAlign = TextAlign.Center
-                )
+                TextButton(onClick = onDismiss) {
+                    Text("Close")
+                }
             }
         }
-    }
+    )
 }
 
 /* ---------- GOAL DIALOG ---------- */
