@@ -1,6 +1,6 @@
 [versions]
 activityComposeVersion = "1.9.3"
-agp = "8.13.0"
+agp = "8.13.1"
 composeBomVersion = "2025.10.01"
 firebase-Bom = "34.4.0"
 kotlin = "2.0.21"
