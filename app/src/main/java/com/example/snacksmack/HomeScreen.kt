@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.snacksmack.notifications.NotificationHelper
@@ -35,6 +36,7 @@ fun HomeScreen(
     var bmiValue by remember { mutableStateOf<Float?>(null) }
     var username by remember { mutableStateOf("") }
     var showWeighInDialog by remember { mutableStateOf(false) }
+    var showBmiInfoDialog by remember { mutableStateOf(false) }
     // Use a nullable Boolean: null = loading, true = weighed in, false = needs to weigh in
     var hasWeighedInThisWeek by remember { mutableStateOf<Boolean?>(null) }
 
@@ -86,9 +88,6 @@ fun HomeScreen(
         }
     }
 
-    val requestPermissionLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { /* ... */ }
-
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Top,
@@ -120,7 +119,10 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(10.dp))
-        bmiLine(bmiValue = bmiValue)
+        bmiLine(
+            bmiValue = bmiValue,
+            onInfoClick = { showBmiInfoDialog = true }
+        )
 
         Spacer(Modifier.height(16.dp))
 
@@ -177,6 +179,12 @@ fun HomeScreen(
             CalendarCard(modifier = Modifier.weight(1f).aspectRatio(1f), onClick = onOpenCalendar)
         }
     }
+    if (showBmiInfoDialog) {
+        BmiInfoOverlay(
+            bmiValue = bmiValue,
+            onDismiss = { showBmiInfoDialog = false }
+        )
+    }
 
     if (showWeighInDialog) {
         WeeklyWeighInSheet(
@@ -187,4 +195,53 @@ fun HomeScreen(
             }
         )
     }
+}
+@Composable
+private fun BmiInfoOverlay(
+    bmiValue: Float?,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(28.dp),
+        containerColor = Color(0xFFFDF5FF), // soft pastel from snack dialog
+        title = {
+            Text(
+                text = "BMI Info",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        text = {
+            val bmiText = if (bmiValue != null) {
+                "BMI also known as Body Mass Index identifies whether your weight is in a healthy range for your height. It’s not perfect as it may not take into account muscle mass but is a good starting point in understanding you body just a bit more.\n" + "\n" +
+                        "Under 18.5: Underweight\n" +
+                        "18.5 - 24.9: Healthy\n" +
+                        "25.0 - 29.9: Overweight\n" +
+                        "30.0 and above: Obese"
+            } else {
+                "BMI not calculated yet. Go to your profile to calculate it."
+            }
+            Text(
+                text = bmiText,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 16.sp),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text("Close")
+                }
+            }
+        }
+    )
 }

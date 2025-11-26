@@ -3,9 +3,9 @@ package com.example.snacksmack
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -13,14 +13,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
 fun bmiLine(
     bmiValue: Float?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onInfoClick: () -> Unit
 ) {
 
     val minBmi = 1f
@@ -28,7 +28,8 @@ fun bmiLine(
 
     Column(
         modifier = modifier.padding(16.dp),
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
         Box(
@@ -69,7 +70,6 @@ fun bmiLine(
 
         // BMI text display with clickable info icon
         Row(
-            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -95,12 +95,11 @@ fun bmiLine(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // info icon talkin about what bmi is and the categories
-            IconButton(onClick = {}) {
+            IconButton(onClick = onInfoClick) {
                 Icon(
-                    painter = painterResource(id = R.drawable.info_icon),
-                    contentDescription = "BMI Information",
-                    modifier = Modifier.size(24.dp),
+                    imageVector = Icons.Default.Info,
+                    contentDescription = "BMI info",
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         }
