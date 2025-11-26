@@ -27,8 +27,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.DayOfWeek
@@ -220,7 +223,7 @@ private fun WaterControlButton(
     onAdd: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val buttonColor = MaterialTheme.colorScheme.primary // Light blue from the water theme
+    val buttonColor = MaterialTheme.colorScheme.primary
 
     Card(
         shape = RoundedCornerShape(50), // Fully rounded corners
@@ -229,7 +232,10 @@ private fun WaterControlButton(
         modifier = modifier
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp), // Adjust padding for better spacing
+            horizontalArrangement = Arrangement.SpaceBetween, // Distribute items evenly
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onRemove) {
@@ -241,10 +247,15 @@ private fun WaterControlButton(
             }
 
             Text(
-                text = "${cupIncrementOz}oz",
-                color = buttonColor.copy(alpha = 0.8f),
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 12.dp)
+                text = buildAnnotatedString {
+                    withStyle(style = SpanStyle(fontSize = 18.sp)) {
+                        append(cupIncrementOz.toString())
+                    }
+                    withStyle(style = SpanStyle(fontSize = 12.sp)) {
+                        append("oz")
+                    }
+                },
+                color = buttonColor.copy(alpha = 0.8f)
             )
 
             IconButton(onClick = onAdd) {
@@ -257,6 +268,7 @@ private fun WaterControlButton(
         }
     }
 }
+
 
 /* ---------- SNACK-STYLE INFO OVERLAY ---------- */
 @Composable

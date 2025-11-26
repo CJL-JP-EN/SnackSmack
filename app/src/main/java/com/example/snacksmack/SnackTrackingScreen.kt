@@ -10,8 +10,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.Composable
@@ -67,13 +69,13 @@ fun SnackTrackingScreen() {
             .verticalScroll(scrollState),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Spacer(Modifier.height(24.dp))
+
         Text(
             "Snack Tracker",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
-        Spacer(Modifier.height(6.dp))
-        Text("Tap buttons to record snacks • Segments grow as you log")
 
         Spacer(Modifier.height(16.dp))
 
@@ -179,7 +181,7 @@ private fun SnackWheel(
     }
 }
 
-        /* ---------- BUTTONS (WITH HONESTY POPUP) ---------- */
+/* ---------- BUTTONS (WITH HONESTY POPUP) ---------- */
 
 @Composable
 private fun SnackButtons(
@@ -303,51 +305,40 @@ private fun SnackToggleButton(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier
-            .height(56.dp),
-        shape = RoundedCornerShape(18.dp),
-        color = color.copy(alpha = 0.12f),
+    Card(
+        modifier = modifier.height(56.dp),
+        shape = RoundedCornerShape(50), // Pill shape
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.12f)),
         border = BorderStroke(1.dp, color.copy(alpha = 0.4f))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // − button
-            OutlinedButton(
-                onClick = onRemove,
-                modifier = Modifier.size(width = 40.dp, height = 40.dp),
-                contentPadding = PaddingValues(0.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = Color.White.copy(alpha = 0.7f)
+            IconButton(onClick = onRemove) {
+                Icon(
+                    imageVector = Icons.Default.Remove,
+                    contentDescription = "Remove $label",
+                    tint = color
                 )
-            ) {
-                Text("−")
             }
 
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                color = color
             )
 
-            // + button
-            Button(
-                onClick = onAdd,
-                modifier = Modifier.size(width = 40.dp, height = 40.dp),
-                contentPadding = PaddingValues(0.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = color,
-                    contentColor = Color.White
+            IconButton(onClick = onAdd) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add $label",
+                    tint = color
                 )
-            ) {
-                Text("+")
             }
         }
     }
