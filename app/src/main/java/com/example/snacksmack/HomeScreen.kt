@@ -19,6 +19,12 @@ import androidx.compose.ui.unit.sp
 import com.example.snacksmack.notifications.NotificationHelper
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.temporal.TemporalAdjusters
 
 @Composable
 fun HomeScreen(
@@ -26,46 +32,62 @@ fun HomeScreen(
     waterViewModel: WaterViewModel
 ) {
     val context = LocalContext.current
-    var useHarsh by remember { mutableStateOf(true) }
     var bmiValue by remember { mutableStateOf<Float?>(null) }
     var username by remember { mutableStateOf("") }
+    var showWeighInDialog by remember { mutableStateOf(false) }
+    // Use a nullable Boolean: null = loading, true = weighed in, false = needs to weigh in
+    var hasWeighedInThisWeek by remember { mutableStateOf<Boolean?>(null) }
 
     // Create notification channel
     LaunchedEffect(Unit) { NotificationHelper.createChannel(context) }
 
-    // Current user
     val currentUser = FirebaseAuth.getInstance().currentUser
     val uid = currentUser?.uid
 
-    // Fetch user data
     if (uid != null) {
-        LaunchedEffect(uid) {
+        // This effect will re-run when the date changes, ensuring the button resets on Monday.
+        LaunchedEffect(uid, LocalDate.now()) {
             val db = FirebaseFirestore.getInstance()
-            val userDocRef = db.collection("users").document(uid)
+            try {
+                // Fetch all user data in parallel for efficiency
+                val personalDoc = db.collection("users").document(uid)
+                    .collection("userPersonalInfo").document("personal").get()
+                val accountDoc = db.collection("users").document(uid)
+                    .collection("userAccountInfo").document("account").get()
 
-            // Account info (username)
-            userDocRef.collection("userAccountInfo").document("account").get()
-                .addOnSuccessListener { document ->
-                    if (document != null && document.exists()) {
-                        username = document.getString("username") ?: ""
+                val personalData = personalDoc.await()
+                val accountData = accountDoc.await()
+
+                if (personalData != null && personalData.exists()) {
+                    bmiValue = personalData.getDouble("bmi")?.toFloat()
+                    val lastWeighIn = personalData.getLong("lastWeighIn") ?: 0
+
+                    hasWeighedInThisWeek = if (lastWeighIn > 0) {
+                        val lastWeighInDate = Instant.ofEpochMilli(lastWeighIn)
+                            .atZone(ZoneId.systemDefault()).toLocalDate()
+                        val today = LocalDate.now(ZoneId.systemDefault())
+                        val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                        !lastWeighInDate.isBefore(monday)
+                    } else {
+                        false
                     }
+                } else {
+                    hasWeighedInThisWeek = false
                 }
 
-            // Personal info (BMI)
-            userDocRef.collection("userPersonalInfo").document("personal").get()
-                .addOnSuccessListener { document ->
-                    if (document != null && document.exists()) {
-                        bmiValue = document.getDouble("bmi")?.toFloat()
-                    }
+                if (accountData != null && accountData.exists()) {
+                    username = accountData.getString("username") ?: ""
                 }
+
+            } catch (e: Exception) {
+                println("Error fetching user data: ${e.message}")
+                hasWeighedInThisWeek = false // Default to actionable state on error
+            }
         }
     }
 
-    // Android 13+ POST_NOTIFICATIONS (kept since you had it)
     val requestPermissionLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) NotificationHelper.showRandomSnackAlert(context, useHarsh)
-        }
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { /* ... */ }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -100,17 +122,50 @@ fun HomeScreen(
         Spacer(Modifier.height(10.dp))
         bmiLine(bmiValue = bmiValue)
 
+        Spacer(Modifier.height(16.dp))
+
+        val isLoading = hasWeighedInThisWeek == null
+        val isComplete = hasWeighedInThisWeek == true
+
+        val weighInButtonColors = when {
+            isLoading || isComplete -> ButtonDefaults.buttonColors(
+                containerColor = Color.LightGray.copy(alpha = 0.4f),
+                contentColor = Color.DarkGray,
+                disabledContainerColor = Color.LightGray.copy(alpha = 0.4f),
+                disabledContentColor = Color.DarkGray
+            )
+            else -> ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White
+            )
+        }
+
+        Button(
+            onClick = { showWeighInDialog = true },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = weighInButtonColors,
+            enabled = !isLoading && !isComplete
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            } else {
+                Text(
+                    text = if (isComplete) "Weigh-In Complete!" else "Weekly Weigh-In",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            }
+        }
+
         Spacer(Modifier.height(24.dp))
 
-        // Stat cards
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .aspectRatio(1f),
+                modifier = Modifier.weight(1f).aspectRatio(1f),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.6f))
@@ -121,5 +176,15 @@ fun HomeScreen(
             }
             CalendarCard(modifier = Modifier.weight(1f).aspectRatio(1f), onClick = onOpenCalendar)
         }
+    }
+
+    if (showWeighInDialog) {
+        WeeklyWeighInSheet(
+            onDismiss = { showWeighInDialog = false },
+            onWeighInSuccess = {
+                showWeighInDialog = false
+                hasWeighedInThisWeek = true
+            }
+        )
     }
 }
