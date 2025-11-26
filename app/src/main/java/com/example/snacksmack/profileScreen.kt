@@ -6,7 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,7 +27,10 @@ private data class ProfileScreenState(
     val profileData: List<Pair<String, String>> = emptyList(),
     val message: String? = "Loading profile...",
     val isLoading: Boolean = true,
-    val isLoggedIn: Boolean = false
+    val isLoggedIn: Boolean = false,
+    val breakfastTime: String = "08:00",
+    val lunchTime: String = "12:00",
+    val dinnerTime: String = "18:00"
 )
 
 private class ProfileScreenEvents(
@@ -64,6 +67,10 @@ private class ProfileScreenEvents(
                     val age = doc.getLong("age")
                     val sex = doc.getString("sex")
                     val dobMap = doc.get("dob") as? Map<String, Long>
+                    val breakfastTime = doc.getString("breakfast_time") ?: "08:00"
+                    val lunchTime = doc.getString("lunch_time") ?: "12:00"
+                    val dinnerTime = doc.getString("dinner_time") ?: "18:00"
+
 
                     if (height != null && loadedWeightLbs != null && bmi != null) {
                         var feet = 0.0
@@ -83,7 +90,13 @@ private class ProfileScreenEvents(
 
                         val dobString = if (dobMap != null) "${dobMap["month"]}/${dobMap["day"]}/${dobMap["year"]}" else "N/A"
                         val data = createProfileData(feet, inches, loadedWeightLbs, bmi, age, sex, dobString)
-                        state.value = state.value.copy(profileData = data, message = null)
+                        state.value = state.value.copy(
+                            profileData = data,
+                            message = null,
+                            breakfastTime = breakfastTime,
+                            lunchTime = lunchTime,
+                            dinnerTime = dinnerTime
+                        )
                     } else {
                         state.value = state.value.copy(profileData = emptyList(), message = "Welcome! Please complete your profile from the home screen.")
                     }
@@ -92,6 +105,28 @@ private class ProfileScreenEvents(
                 }
             }
     }
+
+    fun saveEatingTimes(breakfast: String, lunch: String, dinner: String) {
+        val uid = auth.currentUser?.uid
+        if (uid == null) {
+            showSnackbar("You must be logged in to save settings.")
+            return
+        }
+        val times = mapOf(
+            "breakfast_time" to breakfast,
+            "lunch_time" to lunch,
+            "dinner_time" to dinner
+        )
+        db.collection("users").document(uid).collection("userPersonalInfo").document("personal")
+            .update(times)
+            .addOnSuccessListener {
+                showSnackbar("Preferred eating times have been updated.")
+            }
+            .addOnFailureListener { e ->
+                showSnackbar("Error updating times: ${e.message}")
+            }
+    }
+
 
     fun removeListener() {
         profileListener?.remove()
@@ -137,6 +172,8 @@ fun ProfileScreen(navController: NavController) {
     val snackbarHostState = remember { SnackbarHostState() }
     val state = remember { mutableStateOf(ProfileScreenState()) }
     val auth = FirebaseAuth.getInstance()
+    var showSettingsDialog by remember { mutableStateOf(false) }
+
 
     val events = remember(coroutineScope, snackbarHostState) {
         ProfileScreenEvents(
@@ -167,15 +204,26 @@ fun ProfileScreen(navController: NavController) {
         }
     }
 
+    if (showSettingsDialog) {
+        SettingsDialog(
+            currentState = state.value,
+            onDismiss = { showSettingsDialog = false },
+            onSave = { breakfast, lunch, dinner ->
+                events.saveEatingTimes(breakfast, lunch, dinner)
+                showSettingsDialog = false
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Profile") },
                 actions = {
-                    IconButton(onClick = {  }) {
+                    IconButton(onClick = { showSettingsDialog = true }) {
                         Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
+                            imageVector = Icons.Default.AccessTime,
+                            contentDescription = "Meal Times",
                         )
                     }
                 }
@@ -279,6 +327,62 @@ private fun ProfileScreenContent(
         }
     }
 }
+
+@Composable
+private fun SettingsDialog(
+    currentState: ProfileScreenState,
+    onDismiss: () -> Unit,
+    onSave: (String, String, String) -> Unit
+) {
+    var breakfastTime by remember { mutableStateOf(currentState.breakfastTime) }
+    var lunchTime by remember { mutableStateOf(currentState.lunchTime) }
+    var dinnerTime by remember { mutableStateOf(currentState.dinnerTime) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Preferred Meal Times") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = breakfastTime,
+                    onValueChange = { breakfastTime = it },
+                    label = { Text("Breakfast") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = lunchTime,
+                    onValueChange = { lunchTime = it },
+                    label = { Text("Lunch") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = dinnerTime,
+                    onValueChange = { dinnerTime = it },
+                    label = { Text("Dinner") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(breakfastTime, lunchTime, dinnerTime)
+                    onDismiss()
+                }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
 
 @Composable
 private fun ProfileDataCard(
