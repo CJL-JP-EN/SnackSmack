@@ -17,7 +17,9 @@ object NotificationScheduler {
     private fun rcFor(type: ReminderType, hour: Int, minute: Int): Int =
         (type.ordinal * 10000) + (hour * 100) + minute   // 0..1 * 10000 + HHmm
 
-    private fun rcForHydrationSlot(hour: Int, minute: Int) = rcFor(ReminderType.HYDRATION, hour, minute)
+    private fun rcForHydrationSlot(hour: Int, minute: Int) =
+        rcFor(ReminderType.HYDRATION, hour, minute)
+
     private fun rcForSnack(hour: Int, minute: Int) = rcFor(ReminderType.SNACK, hour, minute)
 
     private fun pendingIntentFor(
@@ -50,8 +52,10 @@ object NotificationScheduler {
         when {
             Build.VERSION.SDK_INT >= 23 ->
                 am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+
             Build.VERSION.SDK_INT >= 19 ->
                 am.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+
             else ->
                 am.set(AlarmManager.RTC_WAKEUP, triggerAt, pi)
         }
@@ -77,7 +81,14 @@ object NotificationScheduler {
             set(Calendar.MILLISECOND, 0)
         }
         val rc = (cal.timeInMillis % Int.MAX_VALUE).toInt()
-        val pi = pendingIntentFor(appCtx, rc, ReminderType.SNACK, useHarsh, persistent, repeatDaily = false)
+        val pi = pendingIntentFor(
+            appCtx,
+            rc,
+            ReminderType.SNACK,
+            useHarsh,
+            persistent,
+            repeatDaily = false
+        )
         setExact(am, cal.timeInMillis, pi)
         return rc
     }
@@ -165,5 +176,42 @@ object NotificationScheduler {
         )
         am.cancel(dummy)
     }
-}
 
+    fun scheduleDailyMealReminders(
+        context: Context,
+        breakfastTime: String?,
+        lunchTime: String?,
+        dinnerTime: String?
+    ) {
+        // Helper to convert "HH:mm" -> Pair(hour, minute)
+        fun parseTime(value: String?): Pair<Int, Int>? {
+            if (value.isNullOrBlank()) return null
+            val parts = value.split(":")
+            if (parts.size != 2) return null
+            val h = parts[0].toIntOrNull() ?: return null
+            val m = parts[1].toIntOrNull() ?: return null
+            if (h !in 0..23 || m !in 0..59) return null
+            return h to m
+        }
+
+        val times = mutableListOf<Pair<Int, Int>>()
+
+        parseTime(breakfastTime)?.let { times.add(it) }
+        parseTime(lunchTime)?.let { times.add(it) }
+        parseTime(dinnerTime)?.let { times.add(it) }
+
+        if (times.isEmpty()) {
+            // nothing valid to schedule
+            return
+        }
+
+        // Reuse your existing snack reminder machinery:
+        // this will schedule a notification at each time every day.
+        scheduleDailySnackReminders(
+            context = context,
+            times = times,
+            useHarsh = false,     // meal reminders are kinder
+            persistent = false
+        )
+    }
+}

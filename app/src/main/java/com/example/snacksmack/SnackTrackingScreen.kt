@@ -43,8 +43,8 @@ import java.time.temporal.TemporalAdjusters
 
 
 @Composable
-fun SnackTrackingScreen() {
-    val vm: SnackViewModel = viewModel()
+fun SnackTrackingScreen(vm: SnackViewModel) {
+
 
     LaunchedEffect(Unit) { vm.resetIfNewDay() }
 
