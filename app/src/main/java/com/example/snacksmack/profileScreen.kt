@@ -21,6 +21,10 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import android.content.Context
+import com.example.snacksmack.notifications.NotificationScheduler
+import androidx.compose.ui.platform.LocalContext
+
 
 private data class ProfileScreenState(
     val username: String = "",
@@ -38,7 +42,8 @@ private class ProfileScreenEvents(
     private val db: FirebaseFirestore,
     private val coroutineScope: CoroutineScope,
     private val snackbarHostState: SnackbarHostState,
-    private val state: MutableState<ProfileScreenState>
+    private val state: MutableState<ProfileScreenState>,
+    private val context: Context
 ) {
     private var profileListener: ListenerRegistration? = null
 
@@ -121,12 +126,19 @@ private class ProfileScreenEvents(
             .update(times)
             .addOnSuccessListener {
                 showSnackbar("Preferred eating times have been updated.")
-            }
-            .addOnFailureListener { e ->
-                showSnackbar("Error updating times: ${e.message}")
-            }
-    }
 
+        // 👇 NEW: schedule notifications based on the saved times
+        NotificationScheduler.scheduleDailyMealReminders(
+            context = context,
+            breakfastTime = breakfast,
+            lunchTime = lunch,
+            dinnerTime = dinner
+        )
+    }
+    .addOnFailureListener { e ->
+        showSnackbar("Error updating times: ${e.message}")
+    }
+}
 
     fun removeListener() {
         profileListener?.remove()
@@ -172,6 +184,7 @@ fun ProfileScreen(navController: NavController) {
     val snackbarHostState = remember { SnackbarHostState() }
     val state = remember { mutableStateOf(ProfileScreenState()) }
     val auth = FirebaseAuth.getInstance()
+    val context = LocalContext.current
     var showSettingsDialog by remember { mutableStateOf(false) }
 
 
@@ -181,7 +194,8 @@ fun ProfileScreen(navController: NavController) {
             db = FirebaseFirestore.getInstance(),
             coroutineScope = coroutineScope,
             snackbarHostState = snackbarHostState,
-            state = state
+            state = state,
+            context = context
         )
     }
 

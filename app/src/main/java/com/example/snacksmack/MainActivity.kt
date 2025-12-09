@@ -51,7 +51,8 @@ class MainActivity : ComponentActivity() {
                                 waterViewModel = waterViewModel
                             )
                         }
-                        composable("Snack") { SnackTrackingScreen() }
+                        composable("Snack") { SnackTrackingScreen(vm = snackViewModel) }
+
                         composable("profile") { ProfileScreen(navController) }
                         composable("waterTracking") { WaterTrackingScreen(waterViewModel) }
                         composable(
