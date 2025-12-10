@@ -53,6 +53,7 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("Snack") { SnackTrackingScreen() }
                         composable("profile") { ProfileScreen(navController) }
+                        composable("settings") { SettingsScreen(navController) }
                         composable("waterTracking") { WaterTrackingScreen(waterViewModel) }
                         composable(
                             route = "calendar?showCreate={showCreate}",
