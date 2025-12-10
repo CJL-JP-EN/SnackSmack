@@ -1,17 +1,26 @@
 package com.example.snacksmack
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,7 +80,7 @@ private class SettingsScreenEvents(
                     var inches = 10.0
 
                     if (height is String) {
-                        val parts = height.replace("\"", "").split("'")
+                        val parts = height.replace("", "").split("'")
                         if (parts.size == 2) {
                             feet = parts[0].toDoubleOrNull() ?: 5.0
                             inches = parts[1].toDoubleOrNull() ?: 10.0
@@ -113,8 +122,8 @@ private class SettingsScreenEvents(
         }
         db.collection("users").document(uid).collection("userAccountInfo").document("account")
             .update("username", username)
-            .addOnSuccessListener { 
-                showSnackbar("Username updated successfully.") 
+            .addOnSuccessListener {
+                showSnackbar("Username updated successfully.")
                 state.value = state.value.copy(username = username)
             }
             .addOnFailureListener { e -> showSnackbar("Error updating username: ${e.message}") }
@@ -122,29 +131,19 @@ private class SettingsScreenEvents(
 
     fun saveHeight(feet: String, inches: String) {
         val uid = auth.currentUser?.uid ?: return
-        val feetVal = feet.toIntOrNull() ?: -1
-        val inchesVal = inches.toIntOrNull() ?: -1
-        if (feetVal < 0 || inchesVal < 0 || inchesVal > 11) {
+        val feetVal = feet.toDoubleOrNull()
+        val inchesVal = inches.toDoubleOrNull()
+
+        if (feetVal == null || inchesVal == null || feetVal < 0 || inchesVal < 0 || inchesVal >= 12) {
             showSnackbar("Please enter valid feet and inches.")
             return
         }
-        val heightString = "$feetVal'$inchesVal\""
+
+        val totalHeightInInches = (feetVal * 12) + inchesVal
         db.collection("users").document(uid).collection("userPersonalInfo").document("personal")
-            .update("height", heightString)
+            .update("height", totalHeightInInches)
             .addOnSuccessListener { showSnackbar("Height updated successfully.") }
             .addOnFailureListener { e -> showSnackbar("Error updating height: ${e.message}") }
-    }
-
-    fun saveThemeColor(hexColor: String) {
-        val uid = auth.currentUser?.uid ?: return
-        if (!hexColor.matches(Regex("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$"))) {
-            showSnackbar("Invalid hex color format. Use #RRGGBB or #AARRGGBB.")
-            return
-        }
-        db.collection("users").document(uid).collection("userPersonalInfo").document("personal")
-            .update("theme_color", hexColor)
-            .addOnSuccessListener { showSnackbar("Theme color updated. Restart app to see changes.") }
-            .addOnFailureListener { e -> showSnackbar("Error updating theme color: ${e.message}") }
     }
 
     fun removeListener() {
@@ -178,7 +177,6 @@ fun SettingsScreen(navController: NavController) {
     var showMealTimeDialog by remember { mutableStateOf(false) }
     var showUpdateNameDialog by remember { mutableStateOf(false) }
     var showUpdateHeightDialog by remember { mutableStateOf(false) }
-    var showThemeColorDialog by remember { mutableStateOf(false) }
 
     val events = remember(coroutineScope, snackbarHostState) {
         SettingsScreenEvents(auth, FirebaseFirestore.getInstance(), coroutineScope, snackbarHostState, state)
@@ -208,12 +206,9 @@ fun SettingsScreen(navController: NavController) {
     if (showUpdateHeightDialog) {
         UpdateHeightDialog(currentFeet = state.value.feet, currentInches = state.value.inches, onDismiss = { showUpdateHeightDialog = false }, onSave = events::saveHeight)
     }
-    if (showThemeColorDialog) {
-        UpdateThemeDialog(onDismiss = { showThemeColorDialog = false }, onSave = events::saveThemeColor)
-    }
 
     Scaffold(
-        topBar = { 
+        topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Settings") },
                 navigationIcon = {
@@ -231,8 +226,7 @@ fun SettingsScreen(navController: NavController) {
             onLogout = { events.onLogout(navController) },
             onUpdateMealTimes = { showMealTimeDialog = true },
             onUpdateName = { showUpdateNameDialog = true },
-            onUpdateHeight = { showUpdateHeightDialog = true },
-            onUpdateTheme = { showThemeColorDialog = true }
+            onUpdateHeight = { showUpdateHeightDialog = true }
         )
     }
 }
@@ -244,8 +238,7 @@ private fun SettingsScreenContent(
     onLogout: () -> Unit,
     onUpdateMealTimes: () -> Unit,
     onUpdateName: () -> Unit,
-    onUpdateHeight: () -> Unit,
-    onUpdateTheme: () -> Unit
+    onUpdateHeight: () -> Unit
 ) {
     Column(
         modifier = modifier.fillMaxSize().padding(16.dp),
@@ -267,7 +260,6 @@ private fun SettingsScreenContent(
                     SettingsButton(text = "Update Meal Times", onClick = onUpdateMealTimes)
                     SettingsButton(text = "Update Name", onClick = onUpdateName)
                     SettingsButton(text = "Update Height", onClick = onUpdateHeight)
-                    SettingsButton(text = "Change Theme Color", onClick = onUpdateTheme)
                 }
             }
             Button(onClick = onLogout, modifier = Modifier.fillMaxWidth(), enabled = !state.isLoading, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
@@ -284,8 +276,8 @@ private fun SettingsScreenContent(
 @Composable
 private fun SettingsButton(text: String, onClick: () -> Unit) {
     Button(
-        onClick = onClick, 
-        modifier = Modifier.fillMaxWidth().height(56.dp), 
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(56.dp),
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -343,46 +335,34 @@ private fun UpdateNameDialog(currentUsername: String, onDismiss: () -> Unit, onS
 
 @Composable
 private fun UpdateHeightDialog(currentFeet: Int, currentInches: Int, onDismiss: () -> Unit, onSave: (String, String) -> Unit) {
-    var feet by remember { mutableStateOf(currentFeet) }
-    var inches by remember { mutableStateOf(currentInches) }
+    var feet by remember { mutableStateOf(currentFeet.toString()) }
+    var inches by remember { mutableStateOf(currentInches.toString()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Update Height") },
         text = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                ScrollablePicker(
+                OutlinedTextField(
                     value = feet,
                     onValueChange = { feet = it },
-                    range = 1..8,
-                    modifier = Modifier.width(80.dp)
+                    label = { Text("Height (ft)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
                 )
-                Text("ft", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 8.dp))
-                ScrollablePicker(
+                OutlinedTextField(
                     value = inches,
                     onValueChange = { inches = it },
-                    range = 0..11,
-                    modifier = Modifier.width(80.dp)
+                    label = { Text("in") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
                 )
-                Text("in", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 8.dp))
             }
         },
-        confirmButton = { Button(onClick = { onSave(feet.toString(), inches.toString()); onDismiss() }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
-}
-
-@Composable
-private fun UpdateThemeDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
-    var hexColor by remember { mutableStateOf("#") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Change Theme Color") },
-        text = { OutlinedTextField(value = hexColor, onValueChange = { hexColor = it }, label = { Text("Hex Color (#RRGGBB)") }, modifier = Modifier.fillMaxWidth()) },
-        confirmButton = { Button(onClick = { onSave(hexColor); onDismiss() }) { Text("Save") } },
+        confirmButton = { Button(onClick = { onSave(feet, inches); onDismiss() }) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
