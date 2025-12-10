@@ -6,15 +6,20 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -95,7 +100,7 @@ fun CalendarScreen(
     var showCreateDialog by remember { mutableStateOf(showCreateEventDialog) }
     var editEvent by remember { mutableStateOf<Event?>(null) }
 
-    val snackData by remember(currentMonth) {
+    val snackData by remember(currentMonth, snackViewModel.countsToday) {
         mutableStateOf(snackViewModel.getMonthPerCategory(currentMonth.atDay(1)))
     }
     val waterData by remember(currentMonth, waterViewModel.goalOz) {
@@ -318,6 +323,243 @@ fun CalendarGrid(
     }
 }
 
+// ---------- Dialogs & Event Handlers ----------
+
+@Composable
+private fun CreateOrEditEventDialog(
+    initialEvent: Event? = null,
+    onDismiss: () -> Unit,
+    onConfirm: (Event) -> Unit
+) {
+    var title by remember { mutableStateOf(initialEvent?.title ?: "") }
+    var description by remember { mutableStateOf(initialEvent?.description ?: "") }
+    var startTime by remember { mutableStateOf(initialEvent?.startTime ?: "") }
+    var endTime by remember { mutableStateOf(initialEvent?.endTime ?: "") }
+
+    var titleError by remember { mutableStateOf<String?>(null) }
+    var timeError by remember { mutableStateOf<String?>(null) }
+
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initialEvent == null) "Create Event" else "Edit Event") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it; titleError = null },
+                    label = { Text("Event Title *") },
+                    isError = titleError != null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                titleError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description (optional)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(16.dp))
+
+                // Single button for time selection
+                Button(onClick = { showTimePicker = true }, modifier = Modifier.fillMaxWidth()) {
+                    val timeText = if (startTime.isEmpty() || endTime.isEmpty()) {
+                        "Set Start & End Time *"
+                    } else {
+                        "$startTime - $endTime"
+                    }
+                    Text(timeText)
+                }
+                timeError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                titleError = if (title.isBlank()) "Title is required" else null
+                timeError = if (startTime.isEmpty() || endTime.isEmpty()) "Start and end times are required" else null
+
+                var isTimeLogical = true
+                if (startTime.isNotEmpty() && endTime.isNotEmpty()) {
+                    try {
+                        val s = DateTimeManager.timeFmt.parse(startTime)
+                        val e = DateTimeManager.timeFmt.parse(endTime)
+                        if (s != null && e != null && e.before(s)) {
+                            timeError = "End time must be after start time"
+                            isTimeLogical = false
+                        }
+                    } catch (_: Exception) {
+                        timeError = "Invalid time format"
+                        isTimeLogical = false
+                    }
+                }
+
+                if (titleError == null && timeError == null && isTimeLogical) {
+                    onConfirm(Event(title, description.ifBlank { null }, startTime, endTime))
+                }
+            }) { Text(if (initialEvent == null) "Create" else "Save") }
+        },
+        dismissButton = { Button(onClick = onDismiss) { Text("Cancel") } }
+    )
+
+    if (showTimePicker) {
+        Dual24hTimePickerDialog(
+            initialStartTime = startTime,
+            initialEndTime = endTime,
+            onDismiss = { showTimePicker = false },
+            onConfirm = { newStart, newEnd ->
+                startTime = newStart
+                endTime = newEnd
+                timeError = null
+                showTimePicker = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun Dual24hTimePickerDialog(
+    initialStartTime: String,
+    initialEndTime: String,
+    onDismiss: () -> Unit,
+    onConfirm: (startTime: String, endTime: String) -> Unit
+) {
+    fun parseTo24h(timeStr: String): Pair<Int, Int> {
+        if (timeStr.isBlank()) return 12 to 0 // Default to 12:00 PM
+        return try {
+            val cal = Calendar.getInstance()
+            DateTimeManager.timeFmt.parse(timeStr)?.let { cal.time = it }
+            cal.get(Calendar.HOUR_OF_DAY) to cal.get(Calendar.MINUTE)
+        } catch (_: Exception) {
+            12 to 0
+        }
+    }
+
+    val (initialStartHour, initialStartMinute) = parseTo24h(initialStartTime)
+    val (initialEndHour, initialEndMinute) = if (initialEndTime.isBlank()) {
+        (initialStartHour + 1) % 24 to initialStartMinute
+    } else {
+        parseTo24h(initialEndTime)
+    }
+
+    var startHour by remember { mutableStateOf(initialStartHour) }
+    var startMinute by remember { mutableStateOf(initialStartMinute) }
+    var endHour by remember { mutableStateOf(initialEndHour) }
+    var endMinute by remember { mutableStateOf(initialEndMinute) }
+
+    val hours = (0..23).map { it.toString().padStart(2, '0') }
+    val minutes = (0..59).map { it.toString().padStart(2, '0') }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Time Range") },
+        text = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    Text("Start", fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Row {
+                        PickerColumn(
+                            title = "",
+                            items = hours,
+                            selectedIndex = startHour,
+                            modifier = Modifier.weight(1f),
+                            onSelect = { startHour = it }
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        PickerColumn(
+                            title = "",
+                            items = minutes,
+                            selectedIndex = startMinute,
+                            modifier = Modifier.weight(1f),
+                            onSelect = { startMinute = it }
+                        )
+                    }
+                }
+                Spacer(Modifier.width(16.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    Text("End", fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Row {
+                        PickerColumn(
+                            title = "",
+                            items = hours,
+                            selectedIndex = endHour,
+                            modifier = Modifier.weight(1f),
+                            onSelect = { endHour = it }
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        PickerColumn(
+                            title = "",
+                            items = minutes,
+                            selectedIndex = endMinute,
+                            modifier = Modifier.weight(1f),
+                            onSelect = { endMinute = it }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                fun formatTo12h(hour24: Int, minute: Int): String {
+                    val cal = Calendar.getInstance().apply {
+                        set(Calendar.HOUR_OF_DAY, hour24)
+                        set(Calendar.MINUTE, minute)
+                    }
+                    return DateTimeManager.timeFmt.format(cal.time)
+                }
+
+                val newStartTime = formatTo12h(startHour, startMinute)
+                val newEndTime = formatTo12h(endHour, endMinute)
+                onConfirm(newStartTime, newEndTime)
+            }) { Text("OK") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+
+@Composable
+fun EventCard(event: Event, onDelete: () -> Unit, onEditClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(event.title, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                if (event.description?.isNotBlank() == true) {
+                    Text(event.description, fontSize = 14.sp, color = Color.Gray)
+                }
+                Text("Time: ${event.startTime} - ${event.endTime}", fontSize = 14.sp)
+            }
+            Row {
+                TextButton(onClick = onEditClick) { Text("Edit") }
+                TextButton(onClick = onDelete) { Text("Delete") }
+            }
+        }
+    }
+}
+
+
 // ---------- Helpers ----------
 
 private fun toEpochMillis(dateStr: String, timeStr: String): Long? {
@@ -352,149 +594,4 @@ private fun ensureExactAlarmsAllowed(context: Context): Boolean {
     }
     context.startActivity(i)
     return false
-}
-
-@Composable
-private fun CreateOrEditEventDialog(
-    initialEvent: Event? = null,
-    onDismiss: () -> Unit,
-    onConfirm: (Event) -> Unit
-) {
-    var title by remember { mutableStateOf(initialEvent?.title ?: "") }
-    var description by remember { mutableStateOf(initialEvent?.description ?: "") }
-    var startTime by remember { mutableStateOf(initialEvent?.startTime ?: "") }
-    var endTime by remember { mutableStateOf(initialEvent?.endTime ?: "") }
-
-    var titleError by remember { mutableStateOf<String?>(null) }
-    var startTimeError by remember { mutableStateOf<String?>(null) }
-    var endTimeError by remember { mutableStateOf<String?>(null) }
-
-    var showStartPicker by remember { mutableStateOf(false) }
-    var showEndPicker by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (initialEvent == null) "Create Event" else "Edit Event") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it; titleError = null },
-                    label = { Text("Event Title *") },
-                    isError = titleError != null,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                titleError?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
-                }
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Description (optional)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(8.dp))
-
-                Button(onClick = { showStartPicker = true }) {
-                    Text(if (startTime.isEmpty()) "Set Start Time *" else "Start: $startTime")
-                }
-                startTimeError?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                Button(onClick = { showEndPicker = true }) {
-                    Text(if (endTime.isEmpty()) "Set End Time *" else "End: $endTime")
-                }
-                endTimeError?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                titleError = if (title.isBlank()) "Title is required" else null
-                startTimeError = if (startTime.isEmpty()) "Start time is required" else null
-                endTimeError = if (endTime.isEmpty()) "End time is required" else null
-
-                var isTimeLogical = true
-                if (startTime.isNotEmpty() && endTime.isNotEmpty()) {
-                    try {
-                        val s = DateTimeManager.timeFmt.parse(startTime)
-                        val e = DateTimeManager.timeFmt.parse(endTime)
-                        if (s != null && e != null && e.before(s)) {
-                            endTimeError = "End time must be after start time"
-                            isTimeLogical = false
-                        }
-                    } catch (_: Exception) {
-                        endTimeError = "Invalid time format"
-                        isTimeLogical = false
-                    }
-                }
-
-                if (titleError == null && startTimeError == null && endTimeError == null && isTimeLogical) {
-                    onConfirm(Event(title, description.ifBlank { null }, startTime, endTime))
-                }
-            }) { Text(if (initialEvent == null) "Create" else "Save") }
-        },
-        dismissButton = { Button(onClick = onDismiss) { Text("Cancel") } }
-    )
-
-    if (showStartPicker) {
-        val parsed = DateTimeManager.parse12h(startTime) ?: Triple(12, 0, true)
-        ScrollTimePickerDialog(
-            initialHour12 = parsed.first,
-            initialMinute = parsed.second,
-            initialIsAm = parsed.third,
-            onDismiss = { showStartPicker = false },
-            onConfirm = { formatted ->
-                startTime = formatted
-                startTimeError = null
-                showStartPicker = false
-            }
-        )
-    }
-    if (showEndPicker) {
-        val parsed = DateTimeManager.parse12h(endTime) ?: Triple(12, 0, true)
-        ScrollTimePickerDialog(
-            initialHour12 = parsed.first,
-            initialMinute = parsed.second,
-            initialIsAm = parsed.third,
-            onDismiss = { showEndPicker = false },
-            onConfirm = { formatted ->
-                endTime = formatted
-                endTimeError = null
-                showEndPicker = false
-            }
-        )
-    }
-}
-
-@Composable
-private fun EventCard(
-    event: Event,
-    onDelete: () -> Unit,
-    onEditClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        elevation = CardDefaults.cardElevation(4.dp)
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Text(event.title, fontWeight = FontWeight.Bold)
-            Text("Start: ${event.startTime}")
-            Text("End: ${event.endTime}")
-            event.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-            Spacer(Modifier.height(8.dp))
-            Row {
-                Button(onClick = onEditClick, modifier = Modifier.weight(1f)) { Text("Edit") }
-                Spacer(Modifier.width(8.dp))
-                Button(onClick = onDelete, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Delete") }
-            }
-        }
-    }
 }

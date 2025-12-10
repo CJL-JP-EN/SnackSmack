@@ -51,8 +51,10 @@ class MainActivity : ComponentActivity() {
                                 waterViewModel = waterViewModel
                             )
                         }
-                        composable("Snack") { SnackTrackingScreen() }
+                        composable("Snack") { SnackTrackingScreen(vm = snackViewModel) }
+
                         composable("profile") { ProfileScreen(navController) }
+                        composable("settings") { SettingsScreen(navController) }
                         composable("waterTracking") { WaterTrackingScreen(waterViewModel) }
                         composable(
                             route = "calendar?showCreate={showCreate}",

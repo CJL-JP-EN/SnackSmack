@@ -1,17 +1,22 @@
 package com.example.snacksmack
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Locale
@@ -37,16 +42,15 @@ fun ScrollTimePickerDialog(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Apply the weight modifier here, on each child of the Row
-                PickerColumn("Hour", (1..12).map { it.toString().padStart(2,'0') }, hour-1, Modifier.weight(1f)) { hour = it+1 }
-                PickerColumn("Min",  (0..59).map { it.toString().padStart(2,'0') }, minute, Modifier.weight(1f)) { minute = it }
-                PickerColumn("AM/PM", listOf("AM","PM"), if (isAm) 0 else 1, Modifier.weight(1f)) { isAm = (it==0) }
+                PickerColumn("Hour", (1..12).map { it.toString().padStart(2, '0') }, hour - 1, Modifier.weight(1f)) { hour = it + 1 }
+                PickerColumn("Min", (0..59).map { it.toString().padStart(2, '0') }, minute, Modifier.weight(1f)) { minute = it }
+                PickerColumn("AM/PM", listOf("AM", "PM"), if (isAm) 0 else 1, Modifier.weight(1f)) { isAm = (it == 0) }
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                val hh = hour.toString().padStart(2,'0')
-                val mm = minute.toString().padStart(2,'0')
+                val hh = hour.toString().padStart(2, '0')
+                val mm = minute.toString().padStart(2, '0')
                 val ampm = if (isAm) "AM" else "PM"
                 onConfirm("$hh:$mm $ampm".uppercase(Locale.US))
             }) { Text("OK") }
@@ -56,7 +60,7 @@ fun ScrollTimePickerDialog(
 }
 
 @Composable
-private fun PickerColumn(
+internal fun PickerColumn(
     title: String,
     items: List<String>,
     selectedIndex: Int,
@@ -64,7 +68,6 @@ private fun PickerColumn(
     onSelect: (Int) -> Unit
 ) {
     Column(
-        // Use the passed-in modifier here and remove .weight(1f)
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
@@ -81,9 +84,10 @@ private fun PickerColumn(
                 val selected = index == selectedIndex
                 TextButton(onClick = { onSelect(index) }, modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        label,
-                        style = if (selected) MaterialTheme.typography.titleMedium
-                        else MaterialTheme.typography.bodyLarge
+                        text = label,
+                        color = if (selected) MaterialTheme.colorScheme.primary else Color.Black,
+                        style = if (selected) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                     )
                 }
             }

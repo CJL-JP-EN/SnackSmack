@@ -85,6 +85,14 @@ private fun WaterTrackingInternal(
     var showGoalDialog by remember { mutableStateOf(shouldPromptGoal) }
     var showInfoDialog by remember { mutableStateOf(false) }
 
+    var showGoalReachedDialog by remember { mutableStateOf(false) }
+    var hasShownGoalToday by remember { mutableStateOf(false) }
+    LaunchedEffect(goalOz, consumedOz) {
+        if (goalOz > 0 && consumedOz >= goalOz && !hasShownGoalToday) {
+            showGoalReachedDialog = true
+            hasShownGoalToday = true
+        }
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -115,9 +123,10 @@ private fun WaterTrackingInternal(
             }
 
             // Congrats message area
-            Box(modifier = Modifier
-                .heightIn(min = 48.dp) // Reserve space even when hidden
-                .graphicsLayer(alpha = congratsAlpha),
+            Box(
+                modifier = Modifier
+                    .heightIn(min = 48.dp) // Reserve space even when hidden
+                    .graphicsLayer(alpha = congratsAlpha),
                 contentAlignment = Alignment.Center
             ) {
                 if (congratsAlpha > 0f) {
@@ -211,6 +220,31 @@ private fun WaterTrackingInternal(
                 cupIncrementOz = cupIncrementOz,
                 progressPercent = (animated * 100).toInt(),
                 onDismiss = { showInfoDialog = false }
+            )
+        }
+        if (showGoalReachedDialog) {
+            AlertDialog(
+                onDismissRequest = { showGoalReachedDialog = false },
+                title = {
+                    Text(
+                        "Hydration goal met! 💧",
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                text = {
+                    Text(
+                        "You’ve filled your water ring and hit your daily goal.\n" +
+                                "Great job on doing the bare minimum 🙌",
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { showGoalReachedDialog = false }) {
+                        Text("Nice!")
+                    }
+                }
             )
         }
     }
