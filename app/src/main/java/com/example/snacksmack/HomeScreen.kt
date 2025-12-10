@@ -5,7 +5,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +22,8 @@ import androidx.compose.ui.unit.sp
 import com.example.snacksmack.notifications.NotificationHelper
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.DayOfWeek
 import java.time.Instant
@@ -37,8 +41,9 @@ fun HomeScreen(
     var username by remember { mutableStateOf("") }
     var showWeighInDialog by remember { mutableStateOf(false) }
     var showBmiInfoDialog by remember { mutableStateOf(false) }
-    // Use a nullable Boolean: null = loading, true = weighed in, false = needs to weigh in
     var hasWeighedInThisWeek by remember { mutableStateOf<Boolean?>(null) }
+    var weighIns by remember { mutableStateOf<List<Pair<Long, Double>>>(emptyList()) }
+    var weighInSuccessTrigger by remember { mutableStateOf(false) }
 
     // Create notification channel
     LaunchedEffect(Unit) { NotificationHelper.createChannel(context) }
@@ -48,7 +53,7 @@ fun HomeScreen(
 
     if (uid != null) {
         // This effect will re-run when the date changes, ensuring the button resets on Monday.
-        LaunchedEffect(uid, LocalDate.now()) {
+        LaunchedEffect(uid, LocalDate.now(), weighInSuccessTrigger) {
             val db = FirebaseFirestore.getInstance()
             try {
                 // Fetch all user data in parallel for efficiency
@@ -56,9 +61,13 @@ fun HomeScreen(
                     .collection("userPersonalInfo").document("personal").get()
                 val accountDoc = db.collection("users").document(uid)
                     .collection("userAccountInfo").document("account").get()
+                val weighInsQuery = db.collection("users").document(uid).collection("weighIns")
+                    .orderBy("timestamp", Query.Direction.ASCENDING).get()
+
 
                 val personalData = personalDoc.await()
                 val accountData = accountDoc.await()
+                val weighInsData = weighInsQuery.await()
 
                 if (personalData != null && personalData.exists()) {
                     bmiValue = personalData.getDouble("bmi")?.toFloat()
@@ -81,6 +90,18 @@ fun HomeScreen(
                     username = accountData.getString("username") ?: ""
                 }
 
+                if (weighInsData != null && !weighInsData.isEmpty) {
+                    weighIns = weighInsData.documents.mapNotNull {
+                        val timestamp = it.getLong("timestamp")
+                        val weight = it.getDouble("weight_lbs")
+                        if (timestamp != null && weight != null) {
+                            timestamp to weight
+                        } else {
+                            null
+                        }
+                    }
+                }
+
             } catch (e: Exception) {
                 println("Error fetching user data: ${e.message}")
                 hasWeighedInThisWeek = false // Default to actionable state on error
@@ -88,8 +109,13 @@ fun HomeScreen(
         }
     }
 
+    val scrollState = rememberScrollState()
+
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(scrollState),
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -105,7 +131,9 @@ fun HomeScreen(
             text = "Welcome Back",
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.Start).padding(start = 16.dp)
+            modifier = Modifier
+                .align(Alignment.Start)
+                .padding(start = 16.dp)
         )
         Spacer(Modifier.height(10.dp))
 
@@ -131,20 +159,22 @@ fun HomeScreen(
 
         val weighInButtonColors = when {
             isLoading || isComplete -> ButtonDefaults.buttonColors(
-                containerColor = Color.LightGray.copy(alpha = 0.4f),
-                contentColor = Color.DarkGray,
-                disabledContainerColor = Color.LightGray.copy(alpha = 0.4f),
-                disabledContentColor = Color.DarkGray
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                disabledContentColor = MaterialTheme.colorScheme.onSecondaryContainer
             )
             else -> ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
+                contentColor = MaterialTheme.colorScheme.onPrimary
             )
         }
 
         Button(
             onClick = { showWeighInDialog = true },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
             shape = RoundedCornerShape(16.dp),
             colors = weighInButtonColors,
             enabled = !isLoading && !isComplete
@@ -162,21 +192,31 @@ fun HomeScreen(
 
         Spacer(Modifier.height(24.dp))
 
+        if (weighIns.isNotEmpty()) {
+            WeightProgressGraph(weighIns = weighIns)
+            Spacer(Modifier.height(24.dp))
+        }
+
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Card(
-                modifier = Modifier.weight(1f).aspectRatio(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .aspectRatio(1f),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.6f))
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     WaterCupWidget(vm = waterViewModel)
                 }
             }
-            CalendarCard(modifier = Modifier.weight(1f).aspectRatio(1f), onClick = onOpenCalendar)
+            CalendarCard(modifier = Modifier
+                .weight(1f)
+                .aspectRatio(1f), onClick = onOpenCalendar)
         }
     }
     if (showBmiInfoDialog) {
@@ -191,7 +231,8 @@ fun HomeScreen(
             onDismiss = { showWeighInDialog = false },
             onWeighInSuccess = {
                 showWeighInDialog = false
-                hasWeighedInThisWeek = true
+                hasWeighedInThisWeek = null
+                weighInSuccessTrigger = !weighInSuccessTrigger
             }
         )
     }
@@ -204,7 +245,7 @@ private fun BmiInfoOverlay(
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(28.dp),
-        containerColor = Color(0xFFFDF5FF), // soft pastel from snack dialog
+        containerColor = MaterialTheme.colorScheme.surfaceVariant, // soft pastel from snack dialog
         title = {
             Text(
                 text = "BMI Info",
@@ -218,7 +259,7 @@ private fun BmiInfoOverlay(
         },
         text = {
             val bmiText = if (bmiValue != null) {
-                "BMI also known as Body Mass Index identifies whether your weight is in a healthy range for your height. It’s not perfect as it may not take into account muscle mass but is a good starting point in understanding you body just a bit more.\n" + "\n" +
+                "BMI also known as Body Mass Index identifies whether your weight is in a healthy range for your height. It’s not perfect as it may not take into account muscle mass but is a good starting point in understanding your body just a bit more.\n" + "\n" +
                         "Under 18.5: Underweight\n" +
                         "18.5 - 24.9: Healthy\n" +
                         "25.0 - 29.9: Overweight\n" +
