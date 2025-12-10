@@ -26,7 +26,8 @@ private data class ProfileScreenState(
     val profileData: List<Pair<String, String>> = emptyList(),
     val message: String? = "Loading profile...",
     val isLoading: Boolean = true,
-    val isLoggedIn: Boolean = false
+    val isLoggedIn: Boolean = false,
+    val bmi: Double? = null
 )
 
 private class ProfileScreenEvents(
@@ -84,7 +85,8 @@ private class ProfileScreenEvents(
                         val data = createProfileData(feet, inches, loadedWeightLbs, bmi, age, sex, dobString)
                         state.value = state.value.copy(
                             profileData = data,
-                            message = null
+                            message = null,
+                            bmi = bmi
                         )
                     } else {
                         state.value = state.value.copy(profileData = emptyList(), message = "Welcome! Please complete your profile from the home screen.")
@@ -129,6 +131,16 @@ private class ProfileScreenEvents(
             "🧑 Age" to ageString,
             "ጾ Sex" to sexString
         )
+    }
+}
+
+private fun getProfileImageForBmi(bmi: Double?): Int {
+    return when {
+        bmi == null -> R.drawable.cookie_monster
+        bmi < 18.5 -> R.drawable.stick_figure
+        bmi < 25 -> R.drawable.ms_piggy
+        bmi < 30 -> R.drawable.mrs_puff
+        else -> R.drawable.cookie_monster
     }
 }
 
@@ -234,7 +246,7 @@ private fun ProfileScreenContent(
                         elevation = CardDefaults.cardElevation(1.dp)
                     ) {
                         Image(
-                            painter = painterResource(id = R.drawable.cookie_monster),
+                            painter = painterResource(id = getProfileImageForBmi(state.bmi)),
                             contentDescription = "Profile Picture",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
