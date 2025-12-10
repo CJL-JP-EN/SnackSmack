@@ -157,7 +157,11 @@ fun SignUpScreen(
 
                                             batch.commit().addOnCompleteListener { task ->
                                                 isLoading = false
-                                                if (task.isSuccessful) {
+                                                if (task.isSuccessful) {  coroutineScope.launch {
+                                                    snackbarHostState.showSnackbar(
+                                                        "Welcome to Snack Smack, fatty 🤌"
+                                                    )
+                                                }
                                                     onSignUpSuccess()
                                                 } else {
                                                     error = "Failed to save user data: ${task.exception?.message}"
